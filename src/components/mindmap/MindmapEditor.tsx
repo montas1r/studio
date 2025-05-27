@@ -12,7 +12,6 @@ import { EditNodeDialog } from './EditNodeDialog';
 import { PlusCircle, Download, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; 
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -51,11 +50,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // State to force re-render of SVG lines after node positions update
   const [lineRenderKey, setLineRenderKey] = useState(0);
 
   useEffect(() => {
-    // When mindmap data changes (e.g., node position), force re-render of lines
     if (mindmap) {
       setLineRenderKey(prev => prev + 1);
     }
@@ -64,7 +61,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleAddRootNode = () => {
     if (!mindmap || !newRootNodeTitle.trim()) return;
-    const newNode = addNode(mindmap.id, null, { title: newRootNodeTitle, description: newRootNodeDescription });
+    const newNode = addNode(mindmap.id, null, { title: newRootNodeTitle, description: newRootNodeDescription, emoji: '' });
     if (newNode) {
         setNewRootNodeTitle('');
         setNewRootNodeDescription('');
@@ -76,7 +73,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
-    const childNode = addNode(mindmap.id, parentId, { title: `Child of ${parentNode.title}`, description: "" });
+    const childNode = addNode(mindmap.id, parentId, { title: `Child of ${parentNode.title}`, description: "", emoji: '' });
     if (childNode) {
         setEditingNode(childNode);
         setIsEditDialogOpen(true);
@@ -114,29 +111,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
     setDraggedNodeId(nodeId);
-    // Calculate offset from mouse position to top-left of node
     const nodeElement = document.getElementById(`node-${nodeId}`);
     if (nodeElement && canvasRef.current) {
         const nodeRect = nodeElement.getBoundingClientRect();
-        const canvasRect = canvasRef.current.getBoundingClientRect();
-        
-        // Adjust for scroll position of the ScrollArea's viewport
-        const scrollViewport = canvasRef.current.querySelector('div[data-radix-scroll-area-viewport]');
-        const scrollTop = scrollViewport?.scrollTop || 0;
-        const scrollLeft = scrollViewport?.scrollLeft || 0;
-
         setDragOffset({
             x: event.clientX - nodeRect.left,
             y: event.clientY - nodeRect.top,
         });
     }
     event.dataTransfer.effectAllowed = "move";
-    // Set dummy data for Firefox drag to work
     event.dataTransfer.setData("text/plain", nodeId); 
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault(); // Necessary to allow dropping
+    event.preventDefault(); 
     event.dataTransfer.dropEffect = "move";
   };
 
@@ -145,8 +133,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!draggedNodeId || !mindmap || !canvasRef.current) return;
 
     const canvasRect = canvasRef.current.getBoundingClientRect();
-    
-    // Adjust for scroll position of the ScrollArea's viewport
     const scrollViewport = canvasRef.current.querySelector('div[data-radix-scroll-area-viewport]');
     const scrollTop = scrollViewport?.scrollTop || 0;
     const scrollLeft = scrollViewport?.scrollLeft || 0;
@@ -154,7 +140,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     let newX = event.clientX - canvasRect.left + scrollLeft - dragOffset.x;
     let newY = event.clientY - canvasRect.top + scrollTop - dragOffset.y;
 
-    // Ensure node stays within some bounds (e.g., not negative)
     newX = Math.max(0, newX);
     newY = Math.max(0, newY);
 
@@ -239,8 +224,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-350px)] sm:min-h-[calc(100vh-300px)]">
         <div 
           ref={canvasRef}
-          className="relative p-4 min-w-max min-h-full" // Ensure canvas is large enough
-          style={{ width: '200vw', height: '200vh' }} // Make canvas very large to allow nodes to be placed far
+          className="relative p-4 min-w-max min-h-full" 
+          style={{ width: '200vw', height: '200vh' }} 
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
@@ -249,6 +234,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
             <NodeCard
               key={node.id}
               node={node}
+              isRoot={!node.parentId}
               onEdit={handleEditNode}
               onDelete={requestDeleteNode}
               onAddChild={handleAddChildNode}
@@ -256,7 +242,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
             />
           ))}
           
-          {/* Render SVG Lines - key change forces re-render */}
+          {/* Render SVG Lines */}
           <svg key={lineRenderKey} className="absolute top-0 left-0 w-full h-full pointer-events-none z-[-1]">
             <defs>
                 <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
@@ -264,18 +250,23 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                 </marker>
             </defs>
             {allNodes.map(node => {
-              if (!node.parentId) return null;
+              if (!node.parentId) return null; // Node is a root, no incoming line
               const parentNode = mindmap.data.nodes[node.parentId];
-              if (!parentNode) return null;
+              if (!parentNode) return null; // Parent not found
 
-              // Calculate connection points (e.g., center of card or specific anchor points)
-              // Simple center-to-center for now
+              // Only draw line if the parentNode is a root node
+              if (parentNode.parentId !== null) {
+                return null;
+              }
+
+              // Calculate connection points
               const startX = parentNode.x + NODE_CARD_WIDTH / 2;
-              const startY = parentNode.y + NODE_CARD_HEADER_HEIGHT / 2; // Connect from middle of header
+              const startY = parentNode.y + NODE_CARD_HEADER_HEIGHT / 2; 
               const endX = node.x + NODE_CARD_WIDTH / 2;
-              const endY = node.y; // Connect to top-middle of child
+              const endY = node.y; 
 
-              const strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))";
+              // Since parentNode is always a root here, strokeColor will be primary
+              const strokeColor = "hsl(var(--primary))"; 
 
               return (
                 <line
@@ -286,7 +277,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   y2={endY}
                   stroke={strokeColor}
                   strokeWidth="2"
-                  // markerEnd="url(#arrowhead)" // Optional: add arrowheads
                 />
               );
             })}
@@ -332,3 +322,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
+

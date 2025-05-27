@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 interface NodeCardProps {
   node: NodeData;
+  isRoot: boolean; // Explicitly pass if it's a root node for styling
   onEdit: (node: NodeData) => void;
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
@@ -16,10 +17,9 @@ interface NodeCardProps {
   className?: string;
 }
 
-export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
-  const isRoot = !node.parentId;
-
-  const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab"; // Fixed width for now
+export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
+  
+  const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab";
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
   
   const rootNodeCardClasses = "bg-primary/10 border-primary";
@@ -40,6 +40,7 @@ export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, clas
         position: 'absolute',
         left: `${node.x}px`,
         top: `${node.y}px`,
+        width: '300px', // Ensure width consistency for line calculations
       }}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
@@ -61,9 +62,16 @@ export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, clas
           <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", isRoot ? "text-primary-foreground hover:bg-primary/30" : "text-accent-foreground hover:bg-accent/30")} aria-label="Add child node">
             <PlusCircle className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node" className={cn("h-7 w-7 text-destructive hover:bg-destructive/10")}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!isRoot && ( // Only show delete for non-root nodes, or adjust as needed
+            <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node" className={cn("h-7 w-7 text-destructive hover:bg-destructive/10")}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+           {isRoot && ( // Optionally, allow deleting root nodes too
+            <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete root node" className={cn("h-7 w-7 text-destructive hover:bg-destructive/10")}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
