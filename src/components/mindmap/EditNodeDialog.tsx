@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { EditNodeInput, NodeData } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, ImageIcon, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EditNodeDialogProps {
@@ -30,6 +30,8 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [customBackgroundColor, setCustomBackgroundColor] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -38,12 +40,20 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
+      setImageUrl(node.imageUrl || '');
+      setCustomBackgroundColor(node.customBackgroundColor || '');
     }
   }, [node]);
 
   const handleSubmit = () => {
     if (node && title.trim()) {
-      onSave(node.id, { title, description, emoji: emoji.trim() || undefined });
+      onSave(node.id, { 
+        title, 
+        description, 
+        emoji: emoji.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        customBackgroundColor: customBackgroundColor.trim() || undefined,
+      });
       onOpenChange(false);
     }
   };
@@ -86,10 +96,10 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         <DialogHeader>
           <DialogTitle>Edit Node</DialogTitle>
           <DialogDescription>
-            Update the title, description, and emoji for this node. You can also use AI to summarize the description.
+            Update the details for this node. You can use AI to summarize the description.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="node-emoji" className="text-right">
               Emoji
@@ -100,7 +110,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               onChange={(e) => setEmoji(e.target.value)}
               className="col-span-3"
               placeholder="✨ (Optional)"
-              maxLength={2} // Allow for single character emoji or flag sequences
+              maxLength={2} 
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -124,7 +134,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                 id="node-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[120px]"
+                className="min-h-[100px]"
                 placeholder="Node Description"
               />
               <Button onClick={handleSummarize} disabled={isSummarizing || !description.trim()} variant="outline" size="sm">
@@ -136,6 +146,34 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                 AI Summarize
               </Button>
             </div>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="node-image-url" className="text-right">
+              <div className="flex items-center justify-end gap-1">
+                <ImageIcon className="h-4 w-4 text-muted-foreground" /> Image URL
+              </div>
+            </Label>
+            <Input
+              id="node-image-url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="col-span-3"
+              placeholder="https://example.com/image.png (Optional)"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+             <Label htmlFor="node-bg-color" className="text-right">
+               <div className="flex items-center justify-end gap-1">
+                <Palette className="h-4 w-4 text-muted-foreground" /> BG Color
+               </div>
+            </Label>
+            <Input
+              id="node-bg-color"
+              value={customBackgroundColor}
+              onChange={(e) => setCustomBackgroundColor(e.target.value)}
+              className="col-span-3"
+              placeholder="e.g., #FF0000 or lightblue (Optional)"
+            />
           </div>
         </div>
         <DialogFooter>

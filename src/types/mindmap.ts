@@ -4,6 +4,8 @@ export interface NodeData {
   title: string;
   description: string;
   emoji?: string;
+  imageUrl?: string; // New: For displaying an image
+  customBackgroundColor?: string; // New: For custom node background
   parentId: string | null;
   childIds: string[];
   x: number; // X coordinate on the canvas
@@ -17,8 +19,6 @@ export interface NodesObject {
 export interface MindmapData {
   nodes: NodesObject;
   rootNodeIds: string[];
-  // We might need to store canvas viewport state later (zoom, pan)
-  // canvasViewport?: { x: number, y: number, zoom: number };
 }
 
 export interface Mindmap {
@@ -40,4 +40,7 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
+  imageUrl?: string;
+  customBackgroundColor?: string;
 }
+
