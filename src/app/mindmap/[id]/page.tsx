@@ -1,6 +1,7 @@
 
 "use client";
 
+import { use } from 'react';
 import { MindmapEditor } from '@/components/mindmap/MindmapEditor';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,13 +10,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 interface MindmapPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>; // Updated to reflect params is a Promise
 }
 
 export default function MindmapPage({ params }: MindmapPageProps) {
-  const { id: mindmapId } = params;
+  const { id: mindmapId } = use(params); // Unwrap params using React.use()
   const { isLoading, getMindmapById } = useMindmaps();
   const mindmap = getMindmapById(mindmapId);
 
