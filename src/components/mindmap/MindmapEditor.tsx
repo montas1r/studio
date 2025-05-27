@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
-import { PlusCircle, Download, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Download, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; 
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface MindmapEditorProps {
   mindmapId: string;
@@ -69,20 +70,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     }
   };
 
-  const renderNodeTree = useCallback((parentId: string | null, parentIsRootForWireColorContext?: boolean): React.ReactNode[] => {
+  const renderNodeTree = useCallback((parentId: string | null, parentIsRootForWireColorContext?: boolean): (React.ReactElement | null)[] => {
     if (!mindmap) return [];
     const { nodes, rootNodeIds } = mindmap.data;
     
-    const childrenIds = parentId === null 
+    const currentLevelNodeIds = parentId === null 
       ? rootNodeIds 
       : (nodes[parentId]?.childIds || []);
 
-    return childrenIds.map(nodeId => {
+    return currentLevelNodeIds.map(nodeId => {
       const node = nodes[nodeId];
-      if (!node) return null;
+      if (!node) return null; // Important check if a node was deleted but ID still lingers
       return (
         <NodeCard
-          key={node.id}
+          key={node.id} // Use node.id as key
           node={node}
           onEdit={handleEditNode}
           onDelete={handleDeleteNode}
@@ -90,14 +91,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           renderChildren={(childNodeId, parentIsRoot) => renderNodeTree(childNodeId, parentIsRoot)}
           hasChildren={node.childIds && node.childIds.length > 0}
           isRoot={!node.parentId}
-          parentIsRootForWireColor={parentIsRootForWireColorContext} // Pass this down for wire coloring
+          parentIsRootForWireColor={parentIsRootForWireColorContext}
           className={cn(
             !node.parentId ? "min-w-[320px] md:min-w-[380px]" : "min-w-[300px] md:min-w-[350px]",
-            "my-1" // Add some vertical margin between sibling cards
+            "my-1"
           )}
         />
       );
-    }).filter(Boolean) as React.ReactNode[]; 
+    }).filter(Boolean) as (React.ReactElement | null)[]; 
   }, [mindmap, handleAddChildNode, handleEditNode, handleDeleteNode]);
 
 
@@ -120,17 +121,30 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         <AlertTriangle className="w-16 h-16 text-destructive" />
         <h2 className="text-2xl font-bold">Mindmap Not Found</h2>
         <p className="text-muted-foreground">This mindmap may have been deleted or the ID is incorrect.</p>
+        <Button asChild variant="outline">
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
+          </Link>
+        </Button>
       </div>
     );
   }
 
-  const rootNodesContent = renderNodeTree(null, undefined); // Initial call, parentIsRootForWireColor is not applicable
-  const isSingleRootNode = rootNodesContent.length === 1 && mindmap.data.rootNodeIds.length === 1;
+  const rootNodeElements = renderNodeTree(null, undefined);
+  const isSingleRootFlow = mindmap.data.rootNodeIds.length === 1 && Object.values(mindmap.data.nodes).filter(n => !n.parentId).every(rootNode => (!rootNode.childIds || rootNode.childIds.length === 0));
+
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border rounded-lg bg-card shadow-md">
-        <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
+    <div className="space-y-6 h-full flex flex-col flex-grow">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-4 border rounded-lg bg-card shadow-md">
+        <div>
+          <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
+          <Button asChild variant="outline" size="sm" className="mt-2">
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
+            </Link>
+          </Button>
+        </div>
         <div className="flex gap-2">
           <Button onClick={handleExportJson} variant="outline">
             <Download className="mr-2 h-4 w-4" /> Export JSON
@@ -160,28 +174,36 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         </Button>
       </div>
 
-      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow">
+      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[50vh]">
         <div className={cn(
-          "p-6 min-h-[60vh] min-w-max flex", 
-          isSingleRootNode ? "items-center justify-center" : "items-start"
+          "p-6 min-w-max flex", 
+           // isSingleRootFlow will center if only one root node with no children.
+           // Otherwise, default to items-start for multiple roots or roots with children.
+          isSingleRootFlow ? "items-center justify-center h-full" : "items-start" 
         )}>
-          {rootNodesContent.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
-            <div className="flex-grow flex items-center justify-center">
+          {rootNodeElements.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
+            <div className="flex-grow flex items-center justify-center h-full">
               <p className="text-muted-foreground text-center py-10 text-lg">
                 This mindmap is empty. Add a root idea to begin structuring your thoughts!
               </p>
             </div>
           )}
-          {rootNodesContent.length > 0 && (
+          {rootNodeElements.length > 0 && (
              <div className={cn(
-                "flex flex-row gap-8 pb-4", // Horizontal layout for root nodes
-                isSingleRootNode ? "" : "items-start" 
+                "flex flex-row gap-8 pb-4", 
+                isSingleRootFlow ? "" : "items-start" 
               )}>
-              {rootNodesContent.map((nodeComponent, index) => (
-                <div key={index} className="flex flex-col items-center"> {/* Each root node and its children form a column */}
-                  {nodeComponent}
-                </div>
-              ))}
+              {mindmap.data.rootNodeIds.map((rootNodeId) => {
+                const node = mindmap.data.nodes[rootNodeId];
+                if (!node) return null; // Should not happen if data is consistent
+                // Find the React element corresponding to this rootNodeId from rootNodeElements
+                const nodeComponent = rootNodeElements.find(el => el?.key === rootNodeId);
+                return (
+                  <div key={rootNodeId} className="flex flex-col items-center"> {/* Each root node and its children form a column */}
+                    {nodeComponent}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -200,4 +222,3 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
-
