@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, MindmapData } from '@/types/mindmap';
+import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, MindmapData, EditNodeInput } from '@/types/mindmap';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid'; // Needs: npm install uuid && npm install --save-dev @types/uuid
 
@@ -54,7 +54,7 @@ export function useMindmaps() {
     setMindmaps(prev => prev.filter(m => m.id !== id));
   }, []);
 
-  const addNode = useCallback((mindmapId: string, parentId: string | null = null, nodeDetails: { title: string; description: string }) => {
+  const addNode = useCallback((mindmapId: string, parentId: string | null = null, nodeDetails: { title: string; description: string; emoji?: string }) => {
     const mindmap = getMindmapById(mindmapId);
     if (!mindmap) return;
 
@@ -63,6 +63,7 @@ export function useMindmaps() {
       id: newNodeId,
       title: nodeDetails.title,
       description: nodeDetails.description,
+      emoji: nodeDetails.emoji,
       parentId,
       childIds: [],
     };
@@ -83,7 +84,7 @@ export function useMindmaps() {
     return newNode;
   }, [getMindmapById, updateMindmap]);
 
-  const updateNode = useCallback((mindmapId: string, nodeId: string, updates: Partial<Pick<NodeData, 'title' | 'description'>>) => {
+  const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => { // Changed updates type to EditNodeInput
     const mindmap = getMindmapById(mindmapId);
     if (!mindmap || !mindmap.data.nodes[nodeId]) return;
 

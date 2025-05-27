@@ -3,6 +3,7 @@ export interface NodeData {
   id: string;
   title: string;
   description: string;
+  emoji?: string; // Optional emoji for the node
   parentId: string | null;
   childIds: string[];
   // x and y coordinates are for canvas layout, optional for now
@@ -37,4 +38,5 @@ export interface CreateMindmapInput {
 export interface EditNodeInput {
   title: string;
   description: string;
+  emoji?: string;
 }

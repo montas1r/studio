@@ -29,6 +29,7 @@ interface EditNodeDialogProps {
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [emoji, setEmoji] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -36,12 +37,13 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     if (node) {
       setTitle(node.title);
       setDescription(node.description);
+      setEmoji(node.emoji || '');
     }
   }, [node]);
 
   const handleSubmit = () => {
     if (node && title.trim()) {
-      onSave(node.id, { title, description });
+      onSave(node.id, { title, description, emoji: emoji.trim() || undefined });
       onOpenChange(false);
     }
   };
@@ -84,10 +86,23 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         <DialogHeader>
           <DialogTitle>Edit Node</DialogTitle>
           <DialogDescription>
-            Update the title and description for this node. You can also use AI to summarize the description.
+            Update the title, description, and emoji for this node. You can also use AI to summarize the description.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="node-emoji" className="text-right">
+              Emoji
+            </Label>
+            <Input
+              id="node-emoji"
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value)}
+              className="col-span-3"
+              placeholder="✨ (Optional)"
+              maxLength={2} // Allow for single character emoji or flag sequences
+            />
+          </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="node-title" className="text-right">
               Title
@@ -110,7 +125,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="min-h-[120px]"
-                placeholder="Node Description (supports rich text formatting implicitly)"
+                placeholder="Node Description"
               />
               <Button onClick={handleSummarize} disabled={isSummarizing || !description.trim()} variant="outline" size="sm">
                 {isSummarizing ? (

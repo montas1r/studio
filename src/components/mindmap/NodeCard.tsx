@@ -54,13 +54,16 @@ export function NodeCard({ node, onEdit, onDelete, onAddChild, renderChildren, h
           headerBaseClasses,
           isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses
         )}>
-          <div className="flex items-center gap-2 flex-grow min-w-0">
+          <div className="flex items-center gap-1.5 flex-grow min-w-0"> {/* Reduced gap for emoji */}
             {hasChildren && (
               <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="mr-1 flex-shrink-0 h-7 w-7">
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
             )}
             {!hasChildren && <div className="w-8 mr-1 flex-shrink-0"></div>}
+            
+            {node.emoji && <span className="text-lg mr-1.5 flex-shrink-0">{node.emoji}</span>}
+            
             <h3 className={cn(
               "text-base font-semibold truncate",
               isRoot ? "text-primary-foreground" : "text-accent-foreground" 
