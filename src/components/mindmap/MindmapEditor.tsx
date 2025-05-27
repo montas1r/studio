@@ -89,7 +89,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         setInitialViewCentered(true);
       }
     }
-  }, [mindmap, scale]); // Keep scale here for initial centering calc
+  }, [mindmap, scale]);
 
   useEffect(() => {
     if (mindmap && !initialViewCentered) {
@@ -98,6 +98,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }, [mindmap, initialViewCentered, centerView]);
 
   useEffect(() => {
+    // Reset centering flag when mindmapId changes, to allow re-centering on new map
     setInitialViewCentered(false);
   }, [mindmapId]);
 
@@ -119,18 +120,21 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
 
+    // Create a temporary node object to pass to the dialog
+    // It won't be added to the useMindmaps state until saved
     const tempNewNode: NodeData = {
-      id: `temp-${uuidv4()}`,
-      title: '', 
+      id: `temp-${uuidv4()}`, // Temporary ID
+      title: '', // To be filled in dialog
       description: "",
       emoji: "➕",
       parentId: parentId,
-      childIds: [],
-      x: parentNode.x + NODE_CARD_WIDTH + 50,
+      childIds: [], // Will be empty for a new node
+      // Position relative to parent for initial dialog view, if needed, but actual position set on save
+      x: parentNode.x + NODE_CARD_WIDTH + 50, // Default, might not be used directly if not saved
       y: parentNode.y,
     };
 
-    setEditingNode(tempNewNode);
+    setEditingNode(tempNewNode); // Pass temporary node to dialog
     setIsEditDialogOpen(true);
   }, [mindmap]);
 
@@ -141,18 +145,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }, []);
 
   const handleSaveNode = useCallback((nodeId: string, data: EditNodeInput) => {
-    if (!mindmap || !editingNode) return;
+    if (!mindmap || !editingNode) return; // editingNode should hold the node being edited or created
 
-    if (editingNode.id.startsWith('temp-')) {
-      const permanentNode = addNode(mindmap.id, editingNode.parentId, data);
+    if (editingNode.id.startsWith('temp-')) { // Check if it's a new node (using our temporary ID prefix)
+      // This is a new node, so call addNode from useMindmaps
+      const permanentNode = addNode(mindmap.id, editingNode.parentId, data); // Pass parentId from temporary node
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
       }
     } else {
+      // This is an existing node, so call updateNode
       updateNode(mindmap.id, nodeId, data);
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
-    setEditingNode(null);
+    setEditingNode(null); // Clear editingNode
     setIsEditDialogOpen(false);
   }, [mindmap, editingNode, addNode, updateNode, toast]);
 
@@ -181,7 +187,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         const clientX = event.clientX;
         const clientY = event.clientY;
         
-        const contentRect = canvasContentRef.current.getBoundingClientRect();
+        // const contentRect = canvasContentRef.current.getBoundingClientRect(); // Not needed for offset calc like this
         const nodeRect = nodeElement.getBoundingClientRect();
 
         // Mouse position relative to the viewport
@@ -193,12 +199,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         const nodeTopInViewport = nodeRect.top;
 
         setDragOffset({
-            x: (mouseXInViewport - nodeLeftInViewport) / scale,
-            y: (mouseYInViewport - nodeTopInViewport) / scale,
+            x: (mouseXInViewport - nodeLeftInViewport) / scale, // Scale the offset
+            y: (mouseYInViewport - nodeTopInViewport) / scale,  // Scale the offset
         });
     }
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", nodeId);
+    // Set some dummy data to enable dragging in Firefox
+    event.dataTransfer.setData("text/plain", nodeId); 
   }, [scale]);
 
 
@@ -209,25 +216,34 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
+      event.dataTransfer.dropEffect = "move"; // Necessary to allow dropping
   }, []);
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       if (!draggedNodeId || !mindmap || !canvasContentRef.current || !canvasContainerRef.current) return;
 
-      const contentRect = canvasContentRef.current.getBoundingClientRect();
+      const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
+      const viewportRect = scrollAreaViewportEl.getBoundingClientRect();
       
+      // Mouse position relative to the viewport
       const mouseXInViewport = event.clientX;
       const mouseYInViewport = event.clientY;
 
-      // Convert mouse viewport coordinates to logical canvas coordinates
-      const logicalX = (mouseXInViewport - contentRect.left) / scale;
-      const logicalY = (mouseYInViewport - contentRect.top) / scale;
+      // Calculate mouse position relative to the scrollable viewport's content area (top-left)
+      // This accounts for the browser window's own scroll, if any, affecting viewportRect.left/top
+      const mouseXInScrollArea = mouseXInViewport - viewportRect.left;
+      const mouseYInScrollArea = mouseYInViewport - viewportRect.top;
+      
+      // Convert mouse position in scroll area to logical canvas coordinates
+      // Must account for current pan and scale
+      const logicalX = (mouseXInScrollArea - pan.x) / scale;
+      const logicalY = (mouseYInScrollArea - pan.y) / scale;
       
       let newX = logicalX - dragOffset.x;
       let newY = logicalY - dragOffset.y;
 
+      // No Math.max(0, ...) to allow negative coordinates
       updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
       setDraggedNodeId(null);
   }, [draggedNodeId, mindmap, scale, pan, dragOffset, updateNodePosition]);
@@ -266,24 +282,29 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
         const viewportRect = scrollAreaViewportEl.getBoundingClientRect();
         
-        const mouseXInContentDiv = pointer.x - viewportRect.left; // Mouse X relative to scroll area viewport
-        const mouseYInContentDiv = pointer.y - viewportRect.top;  // Mouse Y relative to scroll area viewport
+        // Mouse X/Y relative to scroll area viewport's top-left corner
+        const mouseXInContentDiv = pointer.x - viewportRect.left; 
+        const mouseYInContentDiv = pointer.y - viewportRect.top; 
 
+        // Logical position of the mouse pointer on the unscaled, unpanned canvas content
         const mouseOnContentX = (mouseXInContentDiv - pan.x) / oldScale;
         const mouseOnContentY = (mouseYInContentDiv - pan.y) / oldScale;
         
+        // Calculate new pan to keep mouseOnContentX/Y at the same screen position (mouseXInContentDiv/Y)
         newPanX = mouseXInContentDiv - mouseOnContentX * newScale;
         newPanY = mouseYInContentDiv - mouseOnContentY * newScale;
 
-    } else {
+    } else { // Zoom to center of viewport if no pointer
         if (canvasContainerRef.current) {
             const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
             const viewportCenterX = scrollAreaViewportEl.clientWidth / 2;
             const viewportCenterY = scrollAreaViewportEl.clientHeight / 2;
             
+            // Logical center of the viewport on the unscaled, unpanned canvas content
             const logicalCenterX = (viewportCenterX - pan.x) / oldScale;
             const logicalCenterY = (viewportCenterY - pan.y) / oldScale;
             
+            // Calculate new pan to keep logicalCenterX/Y at the same screen position (viewportCenterX/Y)
             newPanX = viewportCenterX - logicalCenterX * newScale;
             newPanY = viewportCenterY - logicalCenterY * newScale;
         }
@@ -291,41 +312,44 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     setScale(newScale);
     setPan({ x: newPanX, y: newPanY });
-  }, [scale, pan]);
+  }, [scale, pan]); // Keep scale and pan as dependencies
 
   const handleWheelZoom = useCallback((event: WheelEvent) => {
     event.preventDefault();
     const scrollAreaViewportEl = event.currentTarget as HTMLDivElement;
     if (!scrollAreaViewportEl) return;
     
-    // Use event.clientX and event.clientY as they are viewport-relative
+    // Use event.clientX and event.clientY (viewport-relative) for the pointer
     handleZoom(event.deltaY < 0, undefined, { x: event.clientX, y: event.clientY });
-  }, [handleZoom]);
+  }, [handleZoom]); // handleZoom is now memoized
 
   const handlePanMouseDown = useCallback((event: MouseEvent) => {
     const target = event.target as HTMLElement;
-    // Ensure not clicking on a node card or its interactive elements (buttons, inputs inside dialogs etc.)
+    const scrollAreaViewportEl = canvasContainerRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    
+    // Ensure not clicking on a node card or its interactive elements
     if (target.closest('.node-card-draggable') || target.closest('button') || target.closest('input') || target.closest('textarea') || target.closest('[role="dialog"]')) {
       return;
     }
     // Check if the mousedown is directly on the scroll area viewport or the canvas content background
-    if (event.currentTarget && (target === event.currentTarget || (canvasContentRef.current && target === canvasContentRef.current)) ) {
+    if (scrollAreaViewportEl && (target === scrollAreaViewportEl || (canvasContentRef.current && target === canvasContentRef.current)) ) {
       setIsPanning(true);
       panStartRef.current = {
         x: event.clientX - pan.x,
         y: event.clientY - pan.y,
       };
-      (event.currentTarget as HTMLElement).style.cursor = 'grabbing';
+      (scrollAreaViewportEl as HTMLElement).style.cursor = 'grabbing';
     }
-  }, [pan]);
+  }, [pan]); // pan is a dependency
 
   const handlePanMouseMove = useCallback((event: MouseEvent) => {
     if (!isPanning || !panStartRef.current) return;
+    event.preventDefault(); // Prevent text selection during pan
     setPan({
       x: event.clientX - panStartRef.current.x,
       y: event.clientY - panStartRef.current.y,
     });
-  }, [isPanning, pan]);
+  }, [isPanning, pan]); // pan is not strictly needed here, but isPanning covers it
 
   const handlePanMouseUpOrLeave = useCallback((event: MouseEvent) => {
     if (isPanning) {
@@ -338,12 +362,12 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
             }
         }
     }
-  }, [isPanning]);
+  }, [isPanning]); // isPanning is the dependency
 
   const handleResetZoomPan = useCallback(() => {
     setScale(1);
-    setInitialViewCentered(false); // This will trigger re-centering
-  }, []);
+    setInitialViewCentered(false); // This will trigger re-centering effect
+  }, []); // No dependencies needed as it resets to fixed values
 
   useEffect(() => {
     const scrollAreaViewportEl = canvasContainerRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
@@ -351,11 +375,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const currentViewport = scrollAreaViewportEl as HTMLDivElement;
       currentViewport.addEventListener('wheel', handleWheelZoom, { passive: false });
       currentViewport.addEventListener('mousedown', handlePanMouseDown);
+      // Attach mousemove and mouseup to window to allow dragging outside the viewport
       window.addEventListener('mousemove', handlePanMouseMove);
       window.addEventListener('mouseup', handlePanMouseUpOrLeave);
       // Add mouseleave from window as well, in case mouse is released outside window
       window.addEventListener('mouseleave', handlePanMouseUpOrLeave); 
-      currentViewport.style.cursor = 'grab';
+      currentViewport.style.cursor = 'grab'; // Initial cursor state
+      
       return () => {
         currentViewport.removeEventListener('wheel', handleWheelZoom);
         currentViewport.removeEventListener('mousedown', handlePanMouseDown);
@@ -364,7 +390,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         window.removeEventListener('mouseleave', handlePanMouseUpOrLeave);
       };
     }
-  }, [handleWheelZoom, handlePanMouseDown, handlePanMouseMove, handlePanMouseUpOrLeave]);
+  }, [handleWheelZoom, handlePanMouseDown, handlePanMouseMove, handlePanMouseUpOrLeave]); // Dependencies are the memoized handlers
 
 
   if (!mindmap) {
@@ -389,18 +415,18 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       {/* Top Control Section */}
       <div className="p-2 border-b bg-background/80 backdrop-blur-sm rounded-t-lg sticky top-0 z-10">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-1 mb-1">
-          <h1 className="text-lg font-semibold text-foreground truncate" title={mindmap.name}>
+          <h1 className="text-base sm:text-lg font-semibold text-foreground truncate" title={mindmap.name}>
             {mindmap.name}
           </h1>
           <div className="flex items-center gap-1">
-            <Button asChild variant="outline" size="sm" className="text-xs h-8">
+            <Button asChild variant="outline" size="sm" className="text-xs h-7 px-2">
               <Link href="/">
                 <span className="flex items-center">
                   <ArrowLeft className="mr-1 h-3 w-3" /> Library
                 </span>
               </Link>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportJson} className="text-xs h-8">
+            <Button variant="outline" size="sm" onClick={handleExportJson} className="text-xs h-7 px-2">
               <Download className="mr-1 h-3 w-3" /> Export
             </Button>
           </div>
@@ -410,17 +436,17 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
             type="text"
             value={newRootNodeTitle}
             onChange={(e) => setNewRootNodeTitle(e.target.value)}
-            placeholder="New Root Idea Title"
-            className="flex-grow text-xs h-8"
+            placeholder="New Root Idea"
+            className="flex-grow text-xs h-7"
           />
           <Textarea
             value={newRootNodeDescription}
             onChange={(e) => setNewRootNodeDescription(e.target.value)}
             placeholder="Description (Optional)"
             rows={1}
-            className="flex-grow text-xs min-h-[32px] h-8 resize-none" // Ensures textarea matches input height
+            className="flex-grow text-xs min-h-[28px] h-7 resize-none"
           />
-          <Button onClick={handleAddRootNode} size="sm" className="text-xs h-8">
+          <Button onClick={handleAddRootNode} size="sm" className="text-xs h-7 px-2">
             <PlusCircle className="mr-1 h-3 w-3" /> Add Root
           </Button>
         </div>
@@ -429,11 +455,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       {/* Main Canvas Area */}
       <ScrollArea
         ref={canvasContainerRef}
-        className="w-full whitespace-nowrap rounded-b-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-160px)] sm:min-h-[calc(100vh-140px)] relative overflow-hidden" // Removed p-4, adjusted min-h
+        className="w-full whitespace-nowrap rounded-b-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-200px)] sm:min-h-[calc(100vh-180px)] relative overflow-hidden"
       >
         <div
           ref={canvasContentRef}
-          className="relative border-2 border-dashed border-border"
+          className="relative border-2 border-dashed border-destructive"
           style={{
             width: CANVAS_CONTENT_WIDTH,
             height: CANVAS_CONTENT_HEIGHT,
@@ -453,13 +479,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
               onDelete={requestDeleteNode}
               onAddChild={handleAddChildNode}
               onDragStart={(e, id) => handleDragStart(e, id)}
-              className="node-card-draggable"
+              className="node-card-draggable" // Added for easier identification in pan logic
             />
           ))}
 
           <svg
-            key={`lines-${allNodes.length}-${scale}-${pan.x}-${pan.y}`} // Re-render key for lines
+            key={`lines-${allNodes.length}-${scale}-${pan.x}-${pan.y}`}
             className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible"
+            // Style ensures SVG itself is behind nodes if needed, but paths are drawn "on top" of canvasContentRef's background
           >
             {allNodes.map(node => {
               if (!node.parentId) return null;
@@ -468,26 +495,21 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
               if (!parentNode) return null;
 
               const startX = parentNode.x + NODE_CARD_WIDTH / 2;
-              const startY = parentNode.y + NODE_HEADER_HEIGHT; // From bottom of header
+              const startY = parentNode.y + NODE_HEADER_HEIGHT;
               const endX = node.x + NODE_CARD_WIDTH / 2;
-              const endY = node.y; // To top of child card
+              const endY = node.y;
 
               const strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))";
               
-              // Calculate control points for the S-curve
-              // The curviness can be adjusted by changing the sCurveOffset calculation
               const sCurveOffsetY = Math.max(20, Math.min(80, Math.abs(endY - startY) / 2));
-              // For horizontal curviness, use a fraction of the horizontal distance or a fixed value
-              // This example uses vertical distance for simplicity of S-curve in one direction
               const pathData = `M ${startX} ${startY} C ${startX} ${startY + sCurveOffsetY}, ${endX} ${endY - sCurveOffsetY}, ${endX} ${endY}`;
-
 
               return (
                 <path
                   key={`${parentNode.id}-${node.id}`}
                   d={pathData}
                   stroke={strokeColor}
-                  strokeWidth={2 / scale} // Adjust stroke width with zoom
+                  strokeWidth={2 / scale} 
                   fill="none"
                 />
               );
@@ -500,7 +522,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
               style={{
                 // Center message within the visible part of the scaled canvas
                 transform: `translate(${-pan.x / scale}px, ${-pan.y / scale}px)`,
-                width: `${100 / scale}%`, // Ensure it covers the scaled viewport
+                width: `${100 / scale}%`, 
                 height: `${100 / scale}%`,
                }}
             >
@@ -575,3 +597,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
+
