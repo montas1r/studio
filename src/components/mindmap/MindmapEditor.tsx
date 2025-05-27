@@ -11,7 +11,8 @@ import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
 import { PlusCircle, Download, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // Added ScrollArea
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; 
+import { cn } from '@/lib/utils';
 
 interface MindmapEditorProps {
   mindmapId: string;
@@ -89,10 +90,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           renderChildren={() => renderNodeTree(node.id)}
           hasChildren={node.childIds && node.childIds.length > 0}
           isRoot={!node.parentId}
-          className={!node.parentId ? "min-w-[300px] md:min-w-[350px]" : "min-w-[280px] md:min-w-[320px]"} // Adjust width for root/child
+          className={!node.parentId ? "min-w-[320px] md:min-w-[380px]" : "min-w-[300px] md:min-w-[350px]"}
         />
       );
-    }).filter(Boolean) as React.ReactNode[]; // Filter out nulls and assert type
+    }).filter(Boolean) as React.ReactNode[]; 
   }, [mindmap, handleAddChildNode, handleEditNode, handleDeleteNode]);
 
 
@@ -120,9 +121,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }
 
   const rootNodesContent = renderNodeTree(null);
+  const isSingleRootNode = rootNodesContent.length === 1 && mindmap.data.rootNodeIds.length === 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border rounded-lg bg-card shadow-md">
         <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
         <div className="flex gap-2">
@@ -154,17 +156,25 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         </Button>
       </div>
 
-      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner">
-        <div className="p-6 min-h-[50vh] min-w-max">
+      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow">
+        <div className={cn(
+          "p-6 min-h-[60vh] min-w-max flex", 
+          isSingleRootNode ? "items-center justify-center" : "items-start"
+        )}>
           {rootNodesContent.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
-            <p className="text-muted-foreground text-center py-10 text-lg">
-              This mindmap is empty. Add a root idea to begin structuring your thoughts!
-            </p>
+            <div className="flex-grow flex items-center justify-center">
+              <p className="text-muted-foreground text-center py-10 text-lg">
+                This mindmap is empty. Add a root idea to begin structuring your thoughts!
+              </p>
+            </div>
           )}
           {rootNodesContent.length > 0 && (
-             <div className="flex flex-row gap-8 items-start pb-4"> {/* Horizontal layout for root nodes */}
+             <div className={cn(
+                "flex flex-row gap-8 pb-4",
+                isSingleRootNode ? "" : "items-start" 
+              )}>
               {rootNodesContent.map((nodeComponent, index) => (
-                <div key={index} className="flex flex-col items-center"> {/* Wrapper for root node and its children column */}
+                <div key={index} className="flex flex-col items-center"> 
                   {nodeComponent}
                 </div>
               ))}
@@ -174,7 +184,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         <ScrollBar orientation="horizontal" />
         <ScrollBar orientation="vertical" />
       </ScrollArea>
-
 
       {editingNode && (
         <EditNodeDialog
@@ -187,4 +196,3 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
-
