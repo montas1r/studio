@@ -3,12 +3,11 @@ export interface NodeData {
   id: string;
   title: string;
   description: string;
-  emoji?: string; // Optional emoji for the node
+  emoji?: string;
   parentId: string | null;
   childIds: string[];
-  // x and y coordinates are for canvas layout, optional for now
-  x?: number; 
-  y?: number;
+  x: number; // X coordinate on the canvas
+  y: number; // Y coordinate on the canvas
 }
 
 export interface NodesObject {
@@ -17,13 +16,15 @@ export interface NodesObject {
 
 export interface MindmapData {
   nodes: NodesObject;
-  rootNodeIds: string[]; // Order of root nodes
+  rootNodeIds: string[];
+  // We might need to store canvas viewport state later (zoom, pan)
+  // canvasViewport?: { x: number, y: number, zoom: number };
 }
 
 export interface Mindmap {
   id: string;
   name: string;
-  category?: string; // e.g., Physics, History
+  category?: string;
   data: MindmapData;
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
@@ -29,8 +29,12 @@ interface MindmapEditorProps {
   mindmapId: string;
 }
 
+// Define approximate dimensions for line connection points
+const NODE_CARD_WIDTH = 300; // Should match NodeCard's fixed width
+const NODE_CARD_HEADER_HEIGHT = 50; // Approximate height of the card header
+
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
-  const { getMindmapById, addNode, updateNode, deleteNode: deleteNodeFromHook } = useMindmaps();
+  const { getMindmapById, addNode, updateNode, deleteNode: deleteNodeFromHook, updateNodePosition } = useMindmaps();
   const mindmap = getMindmapById(mindmapId);
   
   const [editingNode, setEditingNode] = useState<NodeData | null>(null);
@@ -43,18 +47,35 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [nodeToDelete, setNodeToDelete] = useState<{ id: string; title: string | undefined } | null>(null);
 
   const { toast } = useToast();
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // State to force re-render of SVG lines after node positions update
+  const [lineRenderKey, setLineRenderKey] = useState(0);
+
+  useEffect(() => {
+    // When mindmap data changes (e.g., node position), force re-render of lines
+    if (mindmap) {
+      setLineRenderKey(prev => prev + 1);
+    }
+  }, [mindmap?.data.nodes]);
+
 
   const handleAddRootNode = () => {
     if (!mindmap || !newRootNodeTitle.trim()) return;
-    addNode(mindmap.id, null, { title: newRootNodeTitle, description: newRootNodeDescription });
-    setNewRootNodeTitle('');
-    setNewRootNodeDescription('');
-    toast({ title: "Root Node Added", description: `Node "${newRootNodeTitle}" created.` });
+    const newNode = addNode(mindmap.id, null, { title: newRootNodeTitle, description: newRootNodeDescription });
+    if (newNode) {
+        setNewRootNodeTitle('');
+        setNewRootNodeDescription('');
+        toast({ title: "Root Node Added", description: `Node "${newNode.title}" created.` });
+    }
   };
 
   const handleAddChildNode = (parentId: string) => {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
+    if (!parentNode) return;
     const childNode = addNode(mindmap.id, parentId, { title: `Child of ${parentNode.title}`, description: "" });
     if (childNode) {
         setEditingNode(childNode);
@@ -91,38 +112,55 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     setNodeToDelete(null);
   };
 
+  const handleDragStart = (event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
+    setDraggedNodeId(nodeId);
+    // Calculate offset from mouse position to top-left of node
+    const nodeElement = document.getElementById(`node-${nodeId}`);
+    if (nodeElement && canvasRef.current) {
+        const nodeRect = nodeElement.getBoundingClientRect();
+        const canvasRect = canvasRef.current.getBoundingClientRect();
+        
+        // Adjust for scroll position of the ScrollArea's viewport
+        const scrollViewport = canvasRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+        const scrollTop = scrollViewport?.scrollTop || 0;
+        const scrollLeft = scrollViewport?.scrollLeft || 0;
 
-  const renderNodeTree = useCallback((parentId: string | null, parentIsRootForWireColorContext?: boolean): (React.ReactElement | null)[] => {
-    if (!mindmap) return [];
-    const { nodes, rootNodeIds } = mindmap.data;
+        setDragOffset({
+            x: event.clientX - nodeRect.left,
+            y: event.clientY - nodeRect.top,
+        });
+    }
+    event.dataTransfer.effectAllowed = "move";
+    // Set dummy data for Firefox drag to work
+    event.dataTransfer.setData("text/plain", nodeId); 
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault(); // Necessary to allow dropping
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!draggedNodeId || !mindmap || !canvasRef.current) return;
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
     
-    const currentLevelNodeIds = parentId === null 
-      ? rootNodeIds 
-      : (nodes[parentId]?.childIds || []);
+    // Adjust for scroll position of the ScrollArea's viewport
+    const scrollViewport = canvasRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+    const scrollTop = scrollViewport?.scrollTop || 0;
+    const scrollLeft = scrollViewport?.scrollLeft || 0;
+    
+    let newX = event.clientX - canvasRect.left + scrollLeft - dragOffset.x;
+    let newY = event.clientY - canvasRect.top + scrollTop - dragOffset.y;
 
-    return currentLevelNodeIds.map(nodeId => {
-      const node = nodes[nodeId];
-      if (!node) return null;
-      return (
-        <NodeCard
-          key={node.id}
-          node={node}
-          onEdit={handleEditNode}
-          onDelete={requestDeleteNode} // Changed to requestDeleteNode
-          onAddChild={handleAddChildNode}
-          renderChildren={(childNodeId, parentIsRoot) => renderNodeTree(childNodeId, parentIsRoot)}
-          hasChildren={node.childIds && node.childIds.length > 0}
-          isRoot={!node.parentId}
-          parentIsRootForWireColor={parentIsRootForWireColorContext}
-          className={cn(
-            !node.parentId ? "min-w-[320px] md:min-w-[380px]" : "min-w-[300px] md:min-w-[350px]",
-            "my-1"
-          )}
-        />
-      );
-    }).filter(Boolean) as (React.ReactElement | null)[]; 
-  }, [mindmap, handleAddChildNode, handleEditNode, requestDeleteNode]);
+    // Ensure node stays within some bounds (e.g., not negative)
+    newX = Math.max(0, newX);
+    newY = Math.max(0, newY);
 
+    updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
+    setDraggedNodeId(null);
+  };
 
   const handleExportJson = () => {
     if (!mindmap) return;
@@ -151,12 +189,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       </div>
     );
   }
-
-  const rootNodeElements = renderNodeTree(null, undefined);
-  // A mindmap has a single root flow if it has one root node and that root node has no children yet.
-  const isSingleRootNoChildren = mindmap.data.rootNodeIds.length === 1 && 
-                                 mindmap.data.nodes[mindmap.data.rootNodeIds[0]]?.childIds.length === 0;
-
+  
+  const allNodes = Object.values(mindmap.data.nodes);
 
   return (
     <div className="flex flex-col h-full flex-grow space-y-4">
@@ -165,7 +199,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
-            <Button asChild variant="outline" size="sm" className="mt-2">
+             <Button asChild variant="outline" size="sm" className="mt-2">
               <Link href="/">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
               </Link>
@@ -202,34 +236,67 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       </div>
       
       {/* Mindmap Canvas Section */}
-      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-350px)] sm:min-h-[calc(100vh-300px)]"> {/* Adjusted min-height */}
-        <div className={cn(
-          "p-6 min-w-max flex", 
-          isSingleRootNoChildren && Object.keys(mindmap.data.nodes).length === 1 // Check if it's truly just ONE node total
-            ? "items-center justify-center h-full" 
-            : "items-start" 
-        )}>
-          {rootNodeElements.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
-            <div className="flex-grow flex items-center justify-center h-full">
+      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-350px)] sm:min-h-[calc(100vh-300px)]">
+        <div 
+          ref={canvasRef}
+          className="relative p-4 min-w-max min-h-full" // Ensure canvas is large enough
+          style={{ width: '200vw', height: '200vh' }} // Make canvas very large to allow nodes to be placed far
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Render Nodes */}
+          {allNodes.map((node) => (
+            <NodeCard
+              key={node.id}
+              node={node}
+              onEdit={handleEditNode}
+              onDelete={requestDeleteNode}
+              onAddChild={handleAddChildNode}
+              onDragStart={handleDragStart}
+            />
+          ))}
+          
+          {/* Render SVG Lines - key change forces re-render */}
+          <svg key={lineRenderKey} className="absolute top-0 left-0 w-full h-full pointer-events-none z-[-1]">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--border))" />
+                </marker>
+            </defs>
+            {allNodes.map(node => {
+              if (!node.parentId) return null;
+              const parentNode = mindmap.data.nodes[node.parentId];
+              if (!parentNode) return null;
+
+              // Calculate connection points (e.g., center of card or specific anchor points)
+              // Simple center-to-center for now
+              const startX = parentNode.x + NODE_CARD_WIDTH / 2;
+              const startY = parentNode.y + NODE_CARD_HEADER_HEIGHT / 2; // Connect from middle of header
+              const endX = node.x + NODE_CARD_WIDTH / 2;
+              const endY = node.y; // Connect to top-middle of child
+
+              const strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))";
+
+              return (
+                <line
+                  key={`${parentNode.id}-${node.id}`}
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke={strokeColor}
+                  strokeWidth="2"
+                  // markerEnd="url(#arrowhead)" // Optional: add arrowheads
+                />
+              );
+            })}
+          </svg>
+
+          {allNodes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <p className="text-muted-foreground text-center py-10 text-lg">
-                This mindmap is empty. Add a root idea to begin structuring your thoughts!
+                This mindmap is empty. Add a root idea to begin!
               </p>
-            </div>
-          )}
-          {rootNodeElements.length > 0 && (
-             <div className={cn(
-                "flex flex-row gap-8 pb-4", 
-                isSingleRootNoChildren && Object.keys(mindmap.data.nodes).length === 1 ? "" : "items-start" 
-              )}>
-              {mindmap.data.rootNodeIds.map((rootId) => {
-                const nodeComponent = rootNodeElements.find(el => el?.key === rootId);
-                if (!nodeComponent) return null;
-                return (
-                  <div key={rootId} className="flex flex-col items-center">
-                    {nodeComponent}
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>
@@ -257,7 +324,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setNodeToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteNode}>Delete</AlertDialogAction>
+              <AlertDialogAction onClick={confirmDeleteNode} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
