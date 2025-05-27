@@ -30,8 +30,10 @@ interface MindmapEditorProps {
 }
 
 const NODE_CARD_WIDTH = 300;
-const NODE_CARD_HEIGHT = 100; // Approximate height for line connection logic. Use a more specific value if card height varies significantly.
-const NODE_CARD_HEADER_HEIGHT = 50; // Approximate, for root node connection points.
+// NODE_CARD_HEIGHT is an approximation for initial placement and S-curve start.
+// The actual height of NodeCard can vary based on description content.
+const NODE_CARD_HEIGHT = 100; 
+const NODE_HEADER_HEIGHT = 50; // Approximate height of the card's header, for connection points.
 
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
@@ -52,11 +54,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const [lineRenderKey, setLineRenderKey] = useState(0); // Used to force re-render of SVG lines
+  const [lineRenderKey, setLineRenderKey] = useState(0);
 
   useEffect(() => {
     if (mindmap) {
-      // Force re-render of lines when nodes data changes (e.g., position, add, delete)
       setLineRenderKey(prev => prev + 1);
     }
   }, [mindmap?.data.nodes]);
@@ -64,7 +65,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleAddRootNode = () => {
     if (!mindmap || !newRootNodeTitle.trim()) return;
-    // addNode from useMindmaps now handles initial positioning
     const newNode = addNode(mindmap.id, null, { 
       title: newRootNodeTitle, 
       description: newRootNodeDescription, 
@@ -82,21 +82,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
 
-    // Create a temporary node object. It won't be saved until the dialog confirms.
     const tempNewNode: NodeData = {
-      id: `temp-${uuidv4()}`, // Temporary ID
-      title: `Child of ${parentNode.title}`, // Default title
+      id: `temp-${uuidv4()}`, 
+      title: `Child of ${parentNode.title}`, 
       description: "",
       emoji: "",
       parentId: parentId,
       childIds: [],
-      x: parentNode.x + 50, // Basic offset from parent
+      // Initial position will be set by addNode if saved
+      x: parentNode.x + 50, 
       y: parentNode.y + NODE_CARD_HEIGHT + 50, 
     };
     
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
-    // No toast yet, node is not confirmed
   };
 
   const handleEditNode = (node: NodeData) => {
@@ -107,17 +106,17 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const handleSaveNode = (nodeId: string, data: EditNodeInput) => {
     if (!mindmap || !editingNode) return;
 
-    if (editingNode.id.startsWith('temp-')) { // This is a new node being created
+    if (editingNode.id.startsWith('temp-')) { 
       const permanentNode = addNode(mindmap.id, editingNode.parentId, data);
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
       }
-    } else { // This is an existing node being edited
+    } else { 
       updateNode(mindmap.id, nodeId, data);
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
-    setEditingNode(null); // Clear editing state
-    setIsEditDialogOpen(false); // Close dialog
+    setEditingNode(null); 
+    setIsEditDialogOpen(false); 
   };
 
   const requestDeleteNode = (nodeId: string) => {
@@ -142,14 +141,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const nodeElement = document.getElementById(`node-${nodeId}`);
     if (nodeElement && canvasRef.current) {
         const nodeRect = nodeElement.getBoundingClientRect();
-        const canvasRect = canvasRef.current.getBoundingClientRect(); // Needed if canvas itself is transformed/offset
         setDragOffset({
             x: event.clientX - nodeRect.left,
             y: event.clientY - nodeRect.top,
         });
     }
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", nodeId); // Necessary for Firefox
+    event.dataTransfer.setData("text/plain", nodeId); 
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -162,7 +160,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!draggedNodeId || !mindmap || !canvasRef.current) return;
 
     const canvasRect = canvasRef.current.getBoundingClientRect();
-    // Account for scrolling within the ScrollArea
     const scrollViewport = canvasRef.current.closest('div[data-radix-scroll-area-viewport]');
     const scrollTop = scrollViewport?.scrollTop || 0;
     const scrollLeft = scrollViewport?.scrollLeft || 0;
@@ -170,11 +167,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     let newX = event.clientX - canvasRect.left + scrollLeft - dragOffset.x;
     let newY = event.clientY - canvasRect.top + scrollTop - dragOffset.y;
 
-    // Constrain to canvas boundaries (0,0 minimum)
     newX = Math.max(0, newX);
     newY = Math.max(0, newY);
-    // TODO: Consider max boundaries based on canvas size if needed
-
+    
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
   };
@@ -208,11 +203,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }
   
   const allNodes = Object.values(mindmap.data.nodes);
-  const rootNodes = allNodes.filter(node => !node.parentId);
 
   return (
     <div className="flex flex-col h-full flex-grow space-y-4">
-      {/* Top Controls Section */}
       <div className="p-4 border rounded-lg bg-card shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -253,16 +246,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         </div>
       </div>
       
-      {/* Mindmap Canvas Section */}
       <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-350px)] sm:min-h-[calc(100vh-300px)]">
         <div 
           ref={canvasRef}
           className="relative p-4 min-w-max min-h-full" 
-          style={{ width: '200vw', height: '200vh' }} // Large canvas for node placement
+          style={{ width: '200vw', height: '200vh' }}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* Render Nodes */}
           {allNodes.map((node) => (
             <NodeCard
               key={node.id}
@@ -275,45 +266,42 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
             />
           ))}
           
-          {/* Render SVG Lines - Rendered on top of nodes if z-index isn't carefully managed, or below if z-index is negative. Pointer-events-none is good. */}
           <svg key={lineRenderKey} className="absolute top-0 left-0 w-full h-full pointer-events-none">
-            <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--border))" />
-                </marker>
-            </defs>
             {allNodes.map(node => {
-              if (!node.parentId) return null; // Node is a root, no incoming line
+              if (!node.parentId) return null; 
               
               const parentNode = mindmap.data.nodes[node.parentId];
-              if (!parentNode) return null; // Parent not found
+              if (!parentNode) return null; 
 
-              // Only draw line if the parentNode is a root node
-              if (parentNode.parentId !== null) {
-                return null;
-              }
-
-              // Calculate connection points
-              // For parent (root), connect from bottom-center-ish
               const startX = parentNode.x + NODE_CARD_WIDTH / 2;
-              const startY = parentNode.y + NODE_CARD_HEADER_HEIGHT; // Use header height for root, or full height if more accurate
+              // Connect from bottom of parent's header area
+              const startY = parentNode.y + NODE_HEADER_HEIGHT; 
               
-              // For child, connect to top-center
               const endX = node.x + NODE_CARD_WIDTH / 2;
+              // Connect to top of child node
               const endY = node.y; 
 
-              const strokeColor = "hsl(var(--primary))"; 
+              const strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))"; 
+              
+              // Calculate offset for S-curve control points
+              // Makes the vertical "stem" of the S-curve proportional to vertical distance, with min/max
+              const sCurveOffset = Math.max(20, Math.min(60, Math.abs(endY - startY) / 2.5));
+
+              // Control points for the cubic Bezier "S" curve
+              const cp1X = startX;
+              const cp1Y = startY + sCurveOffset;
+              const cp2X = endX;
+              const cp2Y = endY - sCurveOffset;
+              
+              const pathData = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
 
               return (
-                <line
+                <path
                   key={`${parentNode.id}-${node.id}`}
-                  x1={startX}
-                  y1={startY}
-                  x2={endX}
-                  y2={endY}
+                  d={pathData}
                   stroke={strokeColor}
                   strokeWidth="2"
-                  // markerEnd="url(#arrowhead)" // Optional: add arrowheads
+                  fill="none"
                 />
               );
             })}
@@ -331,14 +319,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         <ScrollBar orientation="vertical" />
       </ScrollArea>
 
-      {isEditDialogOpen && editingNode && ( // Ensure editingNode is not null before rendering dialog
+      {isEditDialogOpen && editingNode && (
         <EditNodeDialog
           isOpen={isEditDialogOpen}
           onOpenChange={(open) => {
             setIsEditDialogOpen(open);
-            if (!open) setEditingNode(null); // Clear editingNode when dialog closes
+            if (!open) setEditingNode(null); 
           }}
-          node={editingNode} // Pass the node being edited or the temporary new node
+          node={editingNode} 
           onSave={handleSaveNode}
         />
       )}
