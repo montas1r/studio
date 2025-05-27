@@ -18,6 +18,17 @@ interface NodeCardProps {
   className?: string;
 }
 
+// Helper function to check for a valid HTTP/HTTPS URL
+function isValidHttpUrl(string?: string): boolean {
+  if (!string) return false;
+  try {
+    const url = new URL(string);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (_) {
+    return false;
+  }
+}
+
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
   
   const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab";
@@ -40,6 +51,8 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
     cardStyle.backgroundColor = node.customBackgroundColor;
     // Potentially adjust border or text color for contrast if needed, or rely on user to pick good contrasts
   }
+
+  const shouldRenderImage = node.imageUrl && isValidHttpUrl(node.imageUrl);
 
   return (
     <div
@@ -76,14 +89,24 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
       
-      {node.imageUrl && (
+      {shouldRenderImage && (
         <div className="relative w-full aspect-video overflow-hidden">
           <Image 
-            src={node.imageUrl} 
+            src={node.imageUrl!} // We've checked node.imageUrl is valid and present
             alt={`Image for ${node.title}`} 
             layout="fill" 
             objectFit="cover" 
-            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/600x400.png?text=Invalid+Image'; (e.target as HTMLImageElement).alt = 'Invalid image URL'; }}
+            onError={(e) => { 
+              (e.target as HTMLImageElement).style.display = 'none'; // Hide broken image icon
+              // Optionally, you could replace it with a placeholder div
+              const parent = (e.target as HTMLImageElement).parentElement;
+              if (parent) {
+                const placeholder = document.createElement('div');
+                placeholder.className = "w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs";
+                placeholder.textContent = "Invalid Image";
+                parent.appendChild(placeholder);
+              }
+            }}
             data-ai-hint="node content image"
           />
         </div>
