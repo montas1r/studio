@@ -2,10 +2,10 @@
 "use client";
 
 import type { NodeData } from '@/types/mindmap';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit3, Trash2, PlusCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Edit3, Trash2, PlusCircle, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import React, { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface NodeCardProps {
   node: NodeData;
@@ -15,52 +15,67 @@ interface NodeCardProps {
   renderChildren: (nodeId: string) => React.ReactNode;
   hasChildren: boolean;
   isRoot?: boolean;
+  className?: string;
 }
 
-export function NodeCard({ node, onEdit, onDelete, onAddChild, renderChildren, hasChildren, isRoot = false }: NodeCardProps) {
+export function NodeCard({ node, onEdit, onDelete, onAddChild, renderChildren, hasChildren, isRoot = false, className }: NodeCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <Card className={`mb-4 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-lg ${isRoot ? 'border-primary border-2' : ''}`}>
-      <CardHeader className="flex flex-row items-center justify-between p-4 bg-muted/30 rounded-t-lg">
-        <div className="flex items-center">
+    <div 
+      className={cn(
+        "bg-card text-card-foreground rounded-lg shadow-lg w-full max-w-md flex flex-col",
+        isRoot ? 'border-primary border-2' : 'border',
+        className
+      )}
+    >
+      <div className={cn(
+        "flex items-center justify-between p-3 rounded-t-lg",
+        isRoot ? "bg-primary/10" : "bg-muted/50"
+      )}>
+        <div className="flex items-center gap-2 flex-grow min-w-0">
           {hasChildren && (
-            <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="mr-2">
-              {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="mr-1 flex-shrink-0 h-7 w-7">
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
           )}
-          <CardTitle className="text-lg font-semibold">{node.title}</CardTitle>
+          {!hasChildren && <div className="w-8 mr-1 flex-shrink-0"></div>} {/* Placeholder for alignment */}
+          <h3 className="text-base font-semibold truncate" title={node.title}>{node.title}</h3>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon" onClick={() => onEdit(node)} aria-label="Edit node">
+        <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className="h-7 w-7">
             <Edit3 className="h-4 w-4" />
           </Button>
-          <Button variant="destructive" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node">
+          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className="text-primary hover:text-primary/90 h-7 w-7" aria-label="Add child node">
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" color="destructive" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node" className="text-destructive hover:text-destructive/90 h-7 w-7">
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      </CardHeader>
+      </div>
+
       {isExpanded && (
         <>
-          <CardContent className="p-4">
-            {node.description ? (
-              <CardDescription className="whitespace-pre-wrap text-sm">{node.description}</CardDescription>
-            ) : (
-              <CardDescription className="italic text-xs">No description yet.</CardDescription>
-            )}
-          </CardContent>
-          <CardFooter className="p-4 border-t">
-            <Button variant="ghost" size="sm" onClick={() => onAddChild(node.id)} className="text-primary hover:text-primary/90">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Child Node
-            </Button>
-          </CardFooter>
-          {hasChildren && (
-            <div className="pl-6 pr-2 pb-2">
-              {renderChildren(node.id)}
+          {(node.description || (hasChildren && node.childIds.length === 0)) && ( // Show content area if description or if it's an empty parent
+            <div className="p-3 text-sm">
+              {node.description ? (
+                <p className="whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed break-words">{node.description}</p>
+              ) : (
+                <p className="italic text-xs text-muted-foreground">No description. Add children or edit to add details.</p>
+              )}
+            </div>
+          )}
+          
+          {hasChildren && node.childIds.length > 0 && (
+            <div className="pl-5 pr-3 pb-3 pt-2"> {/* Indentation for children, less than before */}
+              <div className="flex flex-col gap-3 border-l-2 border-dashed border-border pl-4"> {/* Children container with connecting line illusion */}
+                {renderChildren(node.id)}
+              </div>
             </div>
           )}
         </>
       )}
-    </Card>
+    </div>
   );
 }

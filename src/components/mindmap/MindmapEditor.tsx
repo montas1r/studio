@@ -2,22 +2,23 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import type { Mindmap, NodeData, NodesObject, EditNodeInput } from '@/types/mindmap';
+import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
-import { PlusCircle, Download, Trash2 } from 'lucide-react';
+import { PlusCircle, Download, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // Added ScrollArea
 
 interface MindmapEditorProps {
   mindmapId: string;
 }
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
-  const { getMindmapById, addNode, updateNode, deleteNode, updateMindmap } = useMindmaps();
+  const { getMindmapById, addNode, updateNode, deleteNode } = useMindmaps();
   const mindmap = getMindmapById(mindmapId);
   
   const [editingNode, setEditingNode] = useState<NodeData | null>(null);
@@ -37,10 +38,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   };
 
   const handleAddChildNode = (parentId: string) => {
-    // For simplicity, new child nodes are created with default title/description
-    // and then user can edit them.
     if (!mindmap) return;
-    const childNode = addNode(mindmap.id, parentId, { title: "New Child Node", description: "" });
+    const parentNode = mindmap.data.nodes[parentId];
+    const childNode = addNode(mindmap.id, parentId, { title: `Child of ${parentNode.title}`, description: "" });
     if (childNode) {
         setEditingNode(childNode);
         setIsEditDialogOpen(true);
@@ -62,14 +62,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const handleDeleteNode = (nodeId: string) => {
     if (!mindmap) return;
     const nodeToDelete = mindmap.data.nodes[nodeId];
-    if (window.confirm(`Are you sure you want to delete node "${nodeToDelete?.title}" and all its children?`)) {
+    if (window.confirm(`Are you sure you want to delete node "${nodeToDelete?.title}" and all its children? This action cannot be undone.`)) {
       deleteNode(mindmap.id, nodeId);
       toast({ title: "Node Deleted", description: `Node "${nodeToDelete?.title}" and its children removed.`, variant: "destructive" });
     }
   };
 
-  const renderNodeTree = useCallback((parentId: string | null): React.ReactNode => {
-    if (!mindmap) return null;
+  const renderNodeTree = useCallback((parentId: string | null): React.ReactNode[] => {
+    if (!mindmap) return [];
     const { nodes, rootNodeIds } = mindmap.data;
     
     const childrenIds = parentId === null 
@@ -89,9 +89,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           renderChildren={() => renderNodeTree(node.id)}
           hasChildren={node.childIds && node.childIds.length > 0}
           isRoot={!node.parentId}
+          className={!node.parentId ? "min-w-[300px] md:min-w-[350px]" : "min-w-[280px] md:min-w-[320px]"} // Adjust width for root/child
         />
       );
-    });
+    }).filter(Boolean) as React.ReactNode[]; // Filter out nulls and assert type
   }, [mindmap, handleAddChildNode, handleEditNode, handleDeleteNode]);
 
 
@@ -109,13 +110,21 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   };
 
   if (!mindmap) {
-    return <div className="text-center py-10">Mindmap not found. It might have been deleted.</div>;
+    return (
+      <div className="text-center py-10 flex flex-col items-center gap-4">
+        <AlertTriangle className="w-16 h-16 text-destructive" />
+        <h2 className="text-2xl font-bold">Mindmap Not Found</h2>
+        <p className="text-muted-foreground">This mindmap may have been deleted or the ID is incorrect.</p>
+      </div>
+    );
   }
+
+  const rootNodesContent = renderNodeTree(null);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border rounded-lg bg-card shadow">
-        <h2 className="text-2xl font-bold">{mindmap.name}</h2>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border rounded-lg bg-card shadow-md">
+        <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
         <div className="flex gap-2">
           <Button onClick={handleExportJson} variant="outline">
             <Download className="mr-2 h-4 w-4" /> Export JSON
@@ -123,32 +132,49 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         </div>
       </div>
       
-      <div className="p-4 border rounded-lg bg-card shadow">
-        <h3 className="text-lg font-semibold mb-2">Add New Root Node</h3>
-        <div className="space-y-2">
+      <div className="p-4 border rounded-lg bg-card shadow-md">
+        <h3 className="text-lg font-semibold mb-3">Add New Root Idea</h3>
+        <div className="grid sm:grid-cols-2 gap-4">
           <Input 
-            placeholder="New Root Node Title" 
+            placeholder="Title for the new root idea" 
             value={newRootNodeTitle} 
             onChange={(e) => setNewRootNodeTitle(e.target.value)} 
+            className="h-10"
           />
           <Textarea 
-            placeholder="Description (optional)" 
+            placeholder="Optional description..." 
             value={newRootNodeDescription}
             onChange={(e) => setNewRootNodeDescription(e.target.value)}
-            rows={2}
+            rows={1}
+            className="min-h-[40px] resize-none"
           />
-          <Button onClick={handleAddRootNode} disabled={!newRootNodeTitle.trim()}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Root Node
-          </Button>
         </div>
+        <Button onClick={handleAddRootNode} disabled={!newRootNodeTitle.trim()} className="mt-3">
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Root Idea
+        </Button>
       </div>
 
-      <div className="space-y-4">
-        {mindmap.data.rootNodeIds.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
-          <p className="text-muted-foreground text-center py-6">This mindmap is empty. Add a root node to begin.</p>
-        )}
-        {renderNodeTree(null)}
-      </div>
+      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner">
+        <div className="p-6 min-h-[50vh] min-w-max">
+          {rootNodesContent.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
+            <p className="text-muted-foreground text-center py-10 text-lg">
+              This mindmap is empty. Add a root idea to begin structuring your thoughts!
+            </p>
+          )}
+          {rootNodesContent.length > 0 && (
+             <div className="flex flex-row gap-8 items-start pb-4"> {/* Horizontal layout for root nodes */}
+              {rootNodesContent.map((nodeComponent, index) => (
+                <div key={index} className="flex flex-col items-center"> {/* Wrapper for root node and its children column */}
+                  {nodeComponent}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <ScrollBar orientation="horizontal" />
+        <ScrollBar orientation="vertical" />
+      </ScrollArea>
+
 
       {editingNode && (
         <EditNodeDialog
@@ -161,3 +187,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
+
