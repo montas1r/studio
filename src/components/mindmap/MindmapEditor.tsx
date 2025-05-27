@@ -80,10 +80,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     return currentLevelNodeIds.map(nodeId => {
       const node = nodes[nodeId];
-      if (!node) return null; // Important check if a node was deleted but ID still lingers
+      if (!node) return null;
       return (
         <NodeCard
-          key={node.id} // Use node.id as key
+          key={node.id}
           node={node}
           onEdit={handleEditNode}
           onDelete={handleDeleteNode}
@@ -131,55 +131,61 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }
 
   const rootNodeElements = renderNodeTree(null, undefined);
-  const isSingleRootFlow = mindmap.data.rootNodeIds.length === 1 && Object.values(mindmap.data.nodes).filter(n => !n.parentId).every(rootNode => (!rootNode.childIds || rootNode.childIds.length === 0));
+  // A mindmap has a single root flow if it has one root node and that root node has no children yet.
+  const isSingleRootNoChildren = mindmap.data.rootNodeIds.length === 1 && 
+                                 mindmap.data.nodes[mindmap.data.rootNodeIds[0]]?.childIds.length === 0;
 
 
   return (
-    <div className="space-y-6 h-full flex flex-col flex-grow">
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-4 border rounded-lg bg-card shadow-md">
-        <div>
-          <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
-          <Button asChild variant="outline" size="sm" className="mt-2">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
-            </Link>
-          </Button>
+    <div className="flex flex-col h-full flex-grow space-y-4">
+      {/* Top Controls Section */}
+      <div className="p-4 border rounded-lg bg-card shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-bold truncate" title={mindmap.name}>{mindmap.name}</h2>
+            <Button asChild variant="outline" size="sm" className="mt-2">
+              <Link href="/">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
+              </Link>
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleExportJson} variant="outline">
+              <Download className="mr-2 h-4 w-4" /> Export JSON
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleExportJson} variant="outline">
-            <Download className="mr-2 h-4 w-4" /> Export JSON
+
+        <div>
+          <h3 className="text-lg font-semibold mb-3">Add New Root Idea</h3>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Input 
+              placeholder="Title for the new root idea" 
+              value={newRootNodeTitle} 
+              onChange={(e) => setNewRootNodeTitle(e.target.value)} 
+              className="h-10"
+            />
+            <Textarea 
+              placeholder="Optional description..." 
+              value={newRootNodeDescription}
+              onChange={(e) => setNewRootNodeDescription(e.target.value)}
+              rows={1}
+              className="min-h-[40px] resize-none"
+            />
+          </div>
+          <Button onClick={handleAddRootNode} disabled={!newRootNodeTitle.trim()} className="mt-3">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Root Idea
           </Button>
         </div>
       </div>
       
-      <div className="p-4 border rounded-lg bg-card shadow-md">
-        <h3 className="text-lg font-semibold mb-3">Add New Root Idea</h3>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Input 
-            placeholder="Title for the new root idea" 
-            value={newRootNodeTitle} 
-            onChange={(e) => setNewRootNodeTitle(e.target.value)} 
-            className="h-10"
-          />
-          <Textarea 
-            placeholder="Optional description..." 
-            value={newRootNodeDescription}
-            onChange={(e) => setNewRootNodeDescription(e.target.value)}
-            rows={1}
-            className="min-h-[40px] resize-none"
-          />
-        </div>
-        <Button onClick={handleAddRootNode} disabled={!newRootNodeTitle.trim()} className="mt-3">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Root Idea
-        </Button>
-      </div>
-
-      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[50vh]">
+      {/* Mindmap Canvas Section */}
+      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-300px)] sm:min-h-[calc(100vh-250px)]"> {/* Adjusted min-height */}
         <div className={cn(
           "p-6 min-w-max flex", 
-           // isSingleRootFlow will center if only one root node with no children.
-           // Otherwise, default to items-start for multiple roots or roots with children.
-          isSingleRootFlow ? "items-center justify-center h-full" : "items-start" 
+          isSingleRootNoChildren && Object.keys(mindmap.data.nodes).length === 1 // Check if it's truly just ONE node total
+            ? "items-center justify-center h-full" 
+            : "items-start" 
         )}>
           {rootNodeElements.length === 0 && Object.keys(mindmap.data.nodes).length === 0 && (
             <div className="flex-grow flex items-center justify-center h-full">
@@ -190,16 +196,15 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           )}
           {rootNodeElements.length > 0 && (
              <div className={cn(
-                "flex flex-row gap-8 pb-4", 
-                isSingleRootFlow ? "" : "items-start" 
+                "flex flex-row gap-8 pb-4", // Ensure consistent gap for root columns
+                isSingleRootNoChildren && Object.keys(mindmap.data.nodes).length === 1 ? "" : "items-start" 
               )}>
-              {mindmap.data.rootNodeIds.map((rootNodeId) => {
-                const node = mindmap.data.nodes[rootNodeId];
-                if (!node) return null; // Should not happen if data is consistent
-                // Find the React element corresponding to this rootNodeId from rootNodeElements
-                const nodeComponent = rootNodeElements.find(el => el?.key === rootNodeId);
+              {/* Ensure each root node and its children form a distinct column */}
+              {mindmap.data.rootNodeIds.map((rootId) => {
+                const nodeComponent = rootNodeElements.find(el => el?.key === rootId);
+                if (!nodeComponent) return null;
                 return (
-                  <div key={rootNodeId} className="flex flex-col items-center"> {/* Each root node and its children form a column */}
+                  <div key={rootId} className="flex flex-col items-center"> {/* Column for each root */}
                     {nodeComponent}
                   </div>
                 );
@@ -222,3 +227,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
+
