@@ -4,15 +4,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+// Removed Button, Input, Textarea imports as their primary uses are removed
+// import { Button } from '@/components/ui/button';
+// import { Input } from '@/components/ui/input';
+// import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
 import { PlusCircle, Download, AlertTriangle, ArrowLeft, ZoomIn, ZoomOut, RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import Link from 'next/link';
+// import Link from 'next/link'; // Removed as Back to Library button is removed
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,8 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { v4 as uuidv4 } from 'uuid';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-
+// import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'; // Removed as zoom buttons are removed
 
 interface MindmapEditorProps {
   mindmapId: string;
@@ -43,8 +43,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [editingNode, setEditingNode] = useState<NodeData | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const [newRootNodeTitle, setNewRootNodeTitle] = useState('');
-  const [newRootNodeDescription, setNewRootNodeDescription] = useState('');
+  // Removed state for new root node title and description as the form is removed
+  // const [newRootNodeTitle, setNewRootNodeTitle] = useState('');
+  // const [newRootNodeDescription, setNewRootNodeDescription] = useState('');
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ id: string; title: string | undefined } | null>(null);
@@ -78,12 +79,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         let targetContentX = 0;
         let targetContentY = 0;
 
+        const allNodesList = Object.values(mindmap.data.nodes);
         if (mindmap.data.rootNodeIds.length > 0 && mindmap.data.nodes[mindmap.data.rootNodeIds[0]]) {
           const firstRootNode = mindmap.data.nodes[mindmap.data.rootNodeIds[0]];
           targetContentX = firstRootNode.x + NODE_CARD_WIDTH / 2;
           targetContentY = firstRootNode.y + NODE_HEADER_HEIGHT / 2;
-        } else if (allNodes.length > 0) { // Fallback to first node if no roots (should not happen)
-            const firstNode = allNodes[0];
+        } else if (allNodesList.length > 0) {
+            const firstNode = allNodesList[0];
             targetContentX = firstNode.x + NODE_CARD_WIDTH / 2;
             targetContentY = firstNode.y + NODE_HEADER_HEIGHT / 2;
         }
@@ -96,7 +98,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         setInitialViewCentered(true);
       }
     }
-  }, [mindmap, scale]); // Removed allNodes from deps to avoid re-triggering if only node content changes
+  }, [mindmap, scale]); 
 
   useEffect(() => {
     if (mindmap && !initialViewCentered) {
@@ -105,43 +107,24 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }, [mindmap, initialViewCentered, centerView]);
 
   useEffect(() => {
-    // Reset centering flag when mindmap ID changes, to allow recentering on new map
     setInitialViewCentered(false);
   }, [mindmapId]);
 
-
-  const handleAddRootNode = () => {
-    if (!mindmap || !newRootNodeTitle.trim()) return;
-    const newNode = addNode(mindmap.id, null, {
-      title: newRootNodeTitle,
-      description: newRootNodeDescription,
-      emoji: ''
-    });
-    if (newNode) {
-      setNewRootNodeTitle('');
-      setNewRootNodeDescription('');
-      toast({ title: "Root Node Added", description: `Node "${newNode.title}" created.` });
-       if (mindmap.data.rootNodeIds.length === 0) { // Only recenter if it's the very first node
-        setInitialViewCentered(false); // Trigger recentering
-      }
-    }
-  };
+  // Removed handleAddRootNode as the UI for it is removed
+  // const handleAddRootNode = () => { ... }
 
   const handleAddChildNode = (parentId: string) => {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
 
-    // Create a temporary node object to pass to the dialog
-    // The actual node creation will happen in handleSaveNode if the user confirms
     const tempNewNode: NodeData = {
-      id: `temp-${uuidv4()}`, // Temporary ID
-      title: '', // Default title, to be filled in dialog
+      id: `temp-${uuidv4()}`, 
+      title: '', 
       description: "",
       emoji: "",
       parentId: parentId,
-      childIds: [], // Will be empty for a new node
-      // Position relative to parent, actual addNode will refine this
+      childIds: [], 
       x: parentNode.x + NODE_CARD_WIDTH + 50,
       y: parentNode.y,
     };
@@ -160,17 +143,15 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!mindmap || !editingNode) return;
 
     if (editingNode.id.startsWith('temp-')) { 
-      // This is a new node being created
-      const permanentNode = addNode(mindmap.id, editingNode.parentId, data); // ParentId from temp node
+      const permanentNode = addNode(mindmap.id, editingNode.parentId, data); 
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
       }
     } else { 
-      // This is an existing node being edited
       updateNode(mindmap.id, nodeId, data);
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
-    setEditingNode(null); // Clear editing node
+    setEditingNode(null); 
     setIsEditDialogOpen(false);
   };
   
@@ -191,83 +172,57 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     setNodeToDelete(null);
   };
 
- const handleDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
+  const handleDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
     setDraggedNodeId(nodeId);
     const nodeElement = document.getElementById(`node-${nodeId}`);
 
     if (nodeElement && canvasContentRef.current) {
-        const canvasRect = canvasContentRef.current.getBoundingClientRect(); // This rect is ALREADY scaled and panned
         const clientX = event.clientX;
         const clientY = event.clientY;
-        
-        // The node's visual top-left on the screen
         const nodeRect = nodeElement.getBoundingClientRect();
         
         setDragOffset({
-            x: (clientX - nodeRect.left) / scale, // Offset relative to node's visual top-left, scaled back
+            x: (clientX - nodeRect.left) / scale,
             y: (clientY - nodeRect.top) / scale,
         });
     }
     event.dataTransfer.effectAllowed = "move";
-    // It's good practice to set some data, even if not strictly used by this component
     event.dataTransfer.setData("text/plain", nodeId); 
-    // Optionally, set a custom drag image (though default is usually fine)
-    // const dragImage = new Image();
-    // dragImage.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; // Transparent pixel
-    // event.dataTransfer.setDragImage(dragImage, 0, 0);
-}, [scale]); // pan is not needed here as getBoundingClientRect accounts for it
+  }, [scale]); 
 
 
-const handleDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-},[]);
+  const handleDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+  },[]);
 
-const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault(); // Necessary to allow dropping
-    event.dataTransfer.dropEffect = "move"; // Visual feedback to the user
-}, []);
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault(); 
+      event.dataTransfer.dropEffect = "move"; 
+  }, []);
 
-const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (!draggedNodeId || !mindmap || !canvasContentRef.current || !canvasContainerRef.current) return;
-    
-    // canvasContentRef.current is the direct parent div that is scaled and panned.
-    // Its getBoundingClientRect() gives its position and size on the screen.
-    const contentRect = canvasContentRef.current.getBoundingClientRect();
+  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (!draggedNodeId || !mindmap || !canvasContentRef.current || !canvasContainerRef.current) return;
+      
+      const contentRect = canvasContentRef.current.getBoundingClientRect();
+      const mouseXInViewport = event.clientX;
+      const mouseYInViewport = event.clientY;
+      const mouseXInContent = mouseXInViewport - contentRect.left;
+      const mouseYInContent = mouseYInViewport - contentRect.top;
+      
+      const logicalX = mouseXInContent / scale;
+      const logicalY = mouseYInContent / scale;
 
-    // Mouse position relative to the viewport
-    const mouseXInViewport = event.clientX;
-    const mouseYInViewport = event.clientY;
+      let newX = logicalX - dragOffset.x;
+      let newY = logicalY - dragOffset.y;
+      
+      updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
+      setDraggedNodeId(null);
+  }, [draggedNodeId, mindmap, scale, pan, dragOffset, updateNodePosition]); 
 
-    // Mouse position relative to the scaled and panned content div's origin (top-left)
-    const mouseXInContent = mouseXInViewport - contentRect.left;
-    const mouseYInContent = mouseYInViewport - contentRect.top;
-    
-    // Convert mouse position in content to logical canvas coordinates (unscaled)
-    const logicalX = mouseXInContent / scale;
-    const logicalY = mouseYInContent / scale;
-
-    let newX = logicalX - dragOffset.x;
-    let newY = logicalY - dragOffset.y;
-    
-    updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
-    setDraggedNodeId(null);
-}, [draggedNodeId, mindmap, scale, dragOffset, updateNodePosition]); // Removed pan from here
-
-
-  const handleExportJson = () => {
-    if (!mindmap) return;
-    const jsonString = JSON.stringify(mindmap, null, 2);
-    const blob = new Blob([jsonString], { type: "application/json" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${mindmap.name.replace(/\s+/g, '_')}_export.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Export Successful", description: "Mindmap exported as JSON." });
-  };
+  // Removed handleExportJson as the UI for it is removed
+  // const handleExportJson = () => { ... };
 
   const handleZoom = useCallback((zoomIn: boolean, customScale?: number, pointer?: {x: number, y: number}) => {
     const oldScale = scale;
@@ -286,34 +241,26 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     let newPanX = pan.x;
     let newPanY = pan.y;
 
-    // If a pointer is provided (e.g., mouse cursor), zoom towards that point.
-    // Otherwise, zoom towards the center of the viewport.
     if (pointer && canvasContainerRef.current) {
         const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
-        // pointer.x and pointer.y are mouse coordinates relative to the scrollAreaViewportEl
         const mouseXInViewport = pointer.x; 
         const mouseYInViewport = pointer.y;
         
-        // Point on the logical canvas under the mouse
         const mouseOnContentX = (mouseXInViewport - pan.x) / oldScale;
         const mouseOnContentY = (mouseYInViewport - pan.y) / oldScale;
         
-        // New pan to keep the point under the mouse stationary
         newPanX = mouseXInViewport - mouseOnContentX * newScale;
         newPanY = mouseYInViewport - mouseOnContentY * newScale;
 
     } else { 
-        // Zoom to center of viewport if no pointer
         if (canvasContainerRef.current) {
             const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
             const viewportCenterX = scrollAreaViewportEl.clientWidth / 2;
             const viewportCenterY = scrollAreaViewportEl.clientHeight / 2;
             
-            // Logical center of the viewport on the unscaled canvas
             const logicalCenterX = (viewportCenterX - pan.x) / oldScale;
             const logicalCenterY = (viewportCenterY - pan.y) / oldScale;
 
-            // New pan to keep this logical center at the viewport center
             newPanX = viewportCenterX - logicalCenterX * newScale;
             newPanY = viewportCenterY - logicalCenterY * newScale;
         }
@@ -321,54 +268,48 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     
     setScale(newScale);
     setPan({ x: newPanX, y: newPanY });
-  }, [scale, pan]); // Dependencies: scale and pan
+  }, [scale, pan]); 
 
   const handleWheelZoom = useCallback((event: WheelEvent) => {
-    event.preventDefault(); // Prevent page scroll
-    const scrollAreaViewportEl = event.currentTarget as HTMLDivElement; // The element the listener is attached to
+    event.preventDefault(); 
+    const scrollAreaViewportEl = event.currentTarget as HTMLDivElement; 
     if (!scrollAreaViewportEl) return;
 
-    // Mouse position relative to the scrollAreaViewportEl's top-left corner
     const viewportRect = scrollAreaViewportEl.getBoundingClientRect();
     const mouseXInViewport = event.clientX - viewportRect.left;
     const mouseYInViewport = event.clientY - viewportRect.top;
 
     handleZoom(event.deltaY < 0, undefined, { x: mouseXInViewport, y: mouseYInViewport });
-  }, [handleZoom]); // Dependency: handleZoom
+  }, [handleZoom]); 
   
   const handlePanMouseDown = useCallback((event: MouseEvent) => {
-    // Prevent panning if clicking on a node card or its interactive elements
     const target = event.target as HTMLElement;
     if (target.closest('.node-card-draggable') || target.closest('button') || target.closest('input') || target.closest('textarea')) {
       return; 
     }
 
-    // Ensure panning only starts if the mousedown is directly on the scroll area viewport 
-    // or the canvasContentRef (if it's not obscured by nodes)
     if (event.currentTarget && (target === event.currentTarget || (canvasContentRef.current && target === canvasContentRef.current)) ) {
       setIsPanning(true);
       panStartRef.current = {
-        x: event.clientX - pan.x, // Store initial mouse position relative to current pan
+        x: event.clientX - pan.x, 
         y: event.clientY - pan.y,
       };
       (event.currentTarget as HTMLElement).style.cursor = 'grabbing';
     }
-  }, [pan]); // Dependency: pan
+  }, [pan]); 
 
   const handlePanMouseMove = useCallback((event: MouseEvent) => {
     if (!isPanning || !panStartRef.current) return;
-    // Calculate new pan based on mouse movement from the start point
     setPan({
       x: event.clientX - panStartRef.current.x,
       y: event.clientY - panStartRef.current.y,
     });
-  }, [isPanning]); // Dependency: isPanning (panStartRef.current doesn't need to be a dep)
+  }, [isPanning]); 
 
   const handlePanMouseUpOrLeave = useCallback((event: MouseEvent) => {
     if (isPanning) {
         setIsPanning(false);
         panStartRef.current = null;
-        // Reset cursor on the viewport element
         if (canvasContainerRef.current) {
             const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]');
             if (scrollAreaViewportEl) {
@@ -376,49 +317,41 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
             }
         }
     }
-  }, [isPanning]); // Dependency: isPanning
+  }, [isPanning]); 
   
   const handleResetZoomPan = useCallback(() => {
     setScale(1);
-    setInitialViewCentered(false); // This will trigger the centering useEffect
-  }, []); // No dependencies needed if it only sets state
+    setInitialViewCentered(false); 
+  }, []); 
 
   useEffect(() => {
     const scrollAreaViewportEl = canvasContainerRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
     if (scrollAreaViewportEl) {
       const currentViewport = scrollAreaViewportEl as HTMLDivElement;
 
-      // Add event listeners
       currentViewport.addEventListener('wheel', handleWheelZoom, { passive: false });
       currentViewport.addEventListener('mousedown', handlePanMouseDown);
-      window.addEventListener('mousemove', handlePanMouseMove); // Listen on window for mousemove
-      window.addEventListener('mouseup', handlePanMouseUpOrLeave);   // Listen on window for mouseup
-      currentViewport.style.cursor = 'grab'; // Initial cursor style
+      window.addEventListener('mousemove', handlePanMouseMove); 
+      window.addEventListener('mouseup', handlePanMouseUpOrLeave);   
+      currentViewport.style.cursor = 'grab'; 
 
-      // Cleanup function
       return () => {
         currentViewport.removeEventListener('wheel', handleWheelZoom);
         currentViewport.removeEventListener('mousedown', handlePanMouseDown);
         window.removeEventListener('mousemove', handlePanMouseMove);
         window.removeEventListener('mouseup', handlePanMouseUpOrLeave);
-        // Reset cursor if needed, though it might be handled by component unmount
-        // currentViewport.style.cursor = 'default'; 
       };
     }
-  }, [handleWheelZoom, handlePanMouseDown, handlePanMouseMove, handlePanMouseUpOrLeave]); // Add all handlers as dependencies
+  }, [handleWheelZoom, handlePanMouseDown, handlePanMouseMove, handlePanMouseUpOrLeave]); 
 
 
   if (!mindmap) {
+    // Simplified fallback as navigation buttons are removed
     return (
       <div className="flex flex-col h-full flex-grow items-center justify-center space-y-4 text-center py-10">
         <AlertTriangle className="w-16 h-16 text-destructive" />
         <h2 className="text-2xl font-bold">Mindmap Not Found</h2>
-        <p className="text-muted-foreground">This mindmap may have been deleted or the ID is incorrect.</p>
-        <Button asChild variant="outline">
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
-          </Link>
-        </Button>
+        <p className="text-muted-foreground">This mindmap may have been deleted or the ID is incorrect. Please navigate back to the library.</p>
       </div>
     );
   }
@@ -426,66 +359,22 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
   const allNodes = Object.values(mindmap.data.nodes);
 
   return (
-    <div className="flex flex-col h-full flex-grow space-y-1"> {/* Reduced space-y */}
-      {/* Top Controls Section */}
-      <div className="p-2 border-b rounded-t-lg bg-card shadow-sm space-y-1 flex-shrink-0"> {/* Reduced p, space-y */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1"> {/* Reduced gap */}
-          <div>
-            <h2 className="text-lg font-semibold truncate" title={mindmap.name}>{mindmap.name}</h2> {/* Reduced font size */}
-            <Button asChild variant="outline" size="sm" className="mt-1">
-              <Link href="/">
-                <span className="flex items-center"> {/* Wrap Link children in a single element */}
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Library
-                </span>
-              </Link>
-            </Button>
-          </div>
-          <div className="flex gap-1"> {/* Reduced gap */}
-            <Button onClick={handleExportJson} variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" /> Export
-            </Button>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-medium mb-0.5">Add New Root Idea</h3> {/* Reduced font size and mb */}
-          <div className="grid sm:grid-cols-2 gap-1"> {/* Reduced gap */}
-            <Input
-              placeholder="Title for root idea"
-              value={newRootNodeTitle}
-              onChange={(e) => setNewRootNodeTitle(e.target.value)}
-              className="h-8 text-xs" /* Reduced height, text-xs */
-            />
-            <Textarea
-              placeholder="Optional description..."
-              value={newRootNodeDescription}
-              onChange={(e) => setNewRootNodeDescription(e.target.value)}
-              rows={1}
-              className="min-h-[32px] resize-none text-xs" /* Reduced height, text-xs */
-            />
-          </div>
-          <Button onClick={handleAddRootNode} disabled={!newRootNodeTitle.trim()} className="mt-1" size="sm"> {/* Reduced mt */}
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Root
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Canvas Area */}
+    // The main container is simplified to just the ScrollArea
+    <div className="flex flex-col h-full flex-grow w-full">
       <ScrollArea 
         ref={canvasContainerRef}
-        className="w-full whitespace-nowrap rounded-b-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-200px)] sm:min-h-[calc(100vh-180px)] relative overflow-hidden" // Adjusted min-height, removed padding
+        className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-4rem)] relative overflow-hidden" // Adjusted min-height assuming header was ~4rem
       >
         <div 
           ref={canvasContentRef}
-          className="relative border-2 border-dashed border-border" // Added border for visual cue
+          className="relative border-2 border-dashed border-border" 
           style={{ 
             width: CANVAS_CONTENT_WIDTH, 
             height: CANVAS_CONTENT_HEIGHT,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-            transformOrigin: '0 0', // Important for scaling and panning relative to top-left
-            // backgroundColor: 'hsl(var(--muted)/0.1)', // Optional: slight background tint for canvas
+            transformOrigin: '0 0', 
           }}
-          onDragEnter={handleDragEnter} // Added handler
+          onDragEnter={handleDragEnter} 
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
@@ -498,14 +387,13 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
               onDelete={requestDeleteNode}
               onAddChild={handleAddChildNode}
               onDragStart={(e, id) => handleDragStart(e, id)}
-              className="node-card-draggable" // Class to identify draggable nodes vs canvas
+              className="node-card-draggable" 
             />
           ))}
 
           <svg 
-            key={`lines-${allNodes.length}-${scale}-${pan.x}-${pan.y}`} // More robust key for re-rendering
+            key={`lines-${allNodes.length}-${scale}-${pan.x}-${pan.y}`} 
             className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible"
-            // No z-index needed if it's a direct child and nodes are positioned
           >
             {allNodes.map(node => {
               if (!node.parentId) return null; 
@@ -513,18 +401,14 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
               const parentNode = mindmap.data.nodes[node.parentId];
               if (!parentNode) return null; 
 
-              // Start point: center-bottom of parent's header-ish area
               const startX = parentNode.x + NODE_CARD_WIDTH / 2;
-              const startY = parentNode.y + NODE_HEADER_HEIGHT; // Connect from bottom of header
+              const startY = parentNode.y + NODE_HEADER_HEIGHT; 
 
-              // End point: center-top of child node
               const endX = node.x + NODE_CARD_WIDTH / 2;
-              const endY = node.y; // Connect to top of child
+              const endY = node.y; 
 
               const strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))";
               
-              // S-curve control points calculation
-              // Adjust sCurveOffset based on vertical distance to prevent overly tight curves
               const sCurveOffset = Math.max(20, Math.min(80, Math.abs(endY - startY) / 2));
               const pathData = `M ${startX} ${startY} C ${startX} ${startY + sCurveOffset}, ${endX} ${endY - sCurveOffset}, ${endX} ${endY}`;
 
@@ -534,7 +418,7 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
                   key={`${parentNode.id}-${node.id}`}
                   d={pathData}
                   stroke={strokeColor}
-                  strokeWidth={2 / scale} // Make lines appear thicker when zoomed out
+                  strokeWidth={2 / scale} 
                   fill="none"
                 />
               );
@@ -545,14 +429,13 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
             <div 
               className="absolute inset-0 flex items-center justify-center pointer-events-none" 
               style={{ 
-                // Adjust position to be relative to the viewport, not the scaled canvas
                 transform: `translate(${-pan.x / scale}px, ${-pan.y / scale}px)`, 
-                width: `${100 / scale}%`, // Cover the scaled viewport
+                width: `${100 / scale}%`, 
                 height: `${100 / scale}%`,
                }}
             >
               <div className="text-muted-foreground text-center py-10 text-lg bg-background/80 p-6 rounded-md">
-                This mindmap is empty. Add a root idea to begin!
+                This mindmap is empty. Add ideas using an existing node or implement a way to add root nodes.
               </div>
             </div>
           )}
@@ -561,48 +444,14 @@ const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
         <ScrollBar orientation="vertical" />
       </ScrollArea>
       
-      <div className="fixed bottom-4 right-4 z-20 flex flex-col gap-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={() => handleZoom(true)} size="icon" variant="outline" aria-label="Zoom In" className="bg-background/80 hover:bg-muted">
-              <ZoomIn />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Zoom In</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={() => handleZoom(false)} size="icon" variant="outline" aria-label="Zoom Out" className="bg-background/80 hover:bg-muted">
-              <ZoomOut />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Zoom Out</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={handleResetZoomPan} size="icon" variant="outline" aria-label="Reset Zoom and Pan" className="bg-background/80 hover:bg-muted">
-              <RefreshCcw />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Reset View</p>
-          </TooltipContent>
-        </Tooltip>
-        </TooltipProvider>
-      </div>
-
+      {/* Zoom buttons removed from here */}
 
       {isEditDialogOpen && editingNode && (
         <EditNodeDialog
           isOpen={isEditDialogOpen}
           onOpenChange={(open) => {
             setIsEditDialogOpen(open);
-            if (!open) setEditingNode(null); // Clear editing node if dialog is closed
+            if (!open) setEditingNode(null); 
           }}
           node={editingNode}
           onSave={handleSaveNode}
