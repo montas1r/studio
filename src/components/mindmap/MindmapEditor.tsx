@@ -30,7 +30,7 @@ interface MindmapEditorProps {
 }
 
 const NODE_CARD_WIDTH = 300;
-const NODE_HEADER_HEIGHT = 50; // Approximate height of the card's header, for connection points. Also used for Y connection point.
+const NODE_HEADER_HEIGHT = 50; 
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const { getMindmapById, addNode, updateNode, deleteNode: deleteNodeFromHook, updateNodePosition } = useMindmaps();
@@ -46,13 +46,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [nodeToDelete, setNodeToDelete] = useState<{ id: string; title: string | undefined } | null>(null);
 
   const { toast } = useToast();
-  const canvasContainerRef = useRef<HTMLDivElement>(null); // For the scrollable viewport
-  const canvasContentRef = useRef<HTMLDivElement>(null); // For the transformed content
+  const canvasContainerRef = useRef<HTMLDivElement>(null); 
+  const canvasContentRef = useRef<HTMLDivElement>(null); 
   
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const [lineRenderKey, setLineRenderKey] = useState(0); // To force re-render of lines
+  const [lineRenderKey, setLineRenderKey] = useState(0); 
 
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -67,28 +67,23 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     }
   }, [mindmap?.data.nodes, scale, pan]);
 
-  // Effect to center the view when the mindmap loads
   useEffect(() => {
-    if (mindmap && canvasContainerRef.current && !initialViewCentered && Object.keys(mindmap.data.nodes).length > 0) {
+    if (mindmap && canvasContainerRef.current && !initialViewCentered) {
       const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
       if (scrollAreaViewportEl) {
         const viewportWidth = scrollAreaViewportEl.clientWidth;
         const viewportHeight = scrollAreaViewportEl.clientHeight;
 
-        let targetContentX = NODE_CARD_WIDTH / 2; // Default to center of a node at (0,0)
-        let targetContentY = NODE_HEADER_HEIGHT;   // Default to center of a node at (0,0)
+        let targetContentX = 0; 
+        let targetContentY = 0;   
 
-        // If there are root nodes, target the first one's center
         const firstRootId = mindmap.data.rootNodeIds[0];
         if (firstRootId && mindmap.data.nodes[firstRootId]) {
           const firstRootNode = mindmap.data.nodes[firstRootId];
           targetContentX = firstRootNode.x + NODE_CARD_WIDTH / 2;
-          targetContentY = firstRootNode.y + NODE_HEADER_HEIGHT / 2; // More accurate center
+          targetContentY = firstRootNode.y + NODE_HEADER_HEIGHT / 2;
         }
         
-        // Calculate pan to bring targetContentX,Y (at current scale) to viewport center
-        // pan.x + targetContentX * currentScale = viewportCenterX
-        // pan.y + targetContentY * currentScale = viewportCenterY
         const newPanX = (viewportWidth / 2) - (targetContentX * scale);
         const newPanY = (viewportHeight / 2) - (targetContentY * scale);
         
@@ -96,14 +91,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         setInitialViewCentered(true);
       }
     }
-  }, [mindmap, scale, initialViewCentered, mindmapId]); // mindmapId in deps to re-trigger if switching maps
+  }, [mindmap, scale, initialViewCentered, mindmapId]); 
 
-  // Reset initialViewCentered when mindmapId changes, so centering can happen for new map
   useEffect(() => {
     setInitialViewCentered(false);
-    // Also reset scale and pan for a fresh view of the new mindmap
-    // setScale(1); 
-    // setPan({x:0, y:0}); // Decided against auto-resetting pan/scale on map switch, as user might want to keep their view. Centering will still apply.
   }, [mindmapId]);
 
 
@@ -118,9 +109,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       setNewRootNodeTitle('');
       setNewRootNodeDescription('');
       toast({ title: "Root Node Added", description: `Node "${newNode.title}" created.` });
-      // If this is the first node, recenter view
-      if (Object.keys(mindmap.data.nodes).length === 0) { // Check if it *was* empty before adding
-        setInitialViewCentered(false); // Trigger recentering
+      if (Object.keys(mindmap.data.nodes).length === 0) { 
+        setInitialViewCentered(false); 
       }
     }
   };
@@ -137,8 +127,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       emoji: "",
       parentId: parentId,
       childIds: [],
-      // Placeholder positions, actual positions determined by addNode hook or user drag
-      x: parentNode.x + NODE_CARD_WIDTH + 50, // Default to the right of parent
+      x: parentNode.x + NODE_CARD_WIDTH + 50, 
       y: parentNode.y,
     };
 
@@ -190,23 +179,22 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     if (nodeElement && canvasContentRef.current) {
         const nodeRect = nodeElement.getBoundingClientRect();
-        const canvasRect = canvasContentRef.current.getBoundingClientRect(); // This rect is already scaled and panned on screen
-
-        // Calculate mouse position relative to the un-transformed top-left of the node.
-        // event.clientX/Y is mouse position on screen.
-        // nodeRect.left/top is node's top-left position on screen.
         setDragOffset({
-            x: (event.clientX - nodeRect.left) / scale, // Scale the offset back
+            x: (event.clientX - nodeRect.left) / scale, 
             y: (event.clientY - nodeRect.top) / scale,
         });
     }
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", nodeId);
+    event.dataTransfer.setData("text/plain", nodeId); // Necessary for Firefox and some browsers
 };
 
+const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+};
 
 const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault(); // Necessary to allow dropping
+    event.preventDefault(); 
     event.dataTransfer.dropEffect = "move";
 };
 
@@ -215,22 +203,15 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     if (!draggedNodeId || !mindmap || !canvasContentRef.current) return;
 
     const canvasRect = canvasContentRef.current.getBoundingClientRect();
-
-    // Mouse position relative to the panned and scaled canvas's on-screen top-left
+    
     const mouseXOnScreenCanvas = event.clientX - canvasRect.left;
     const mouseYOnScreenCanvas = event.clientY - canvasRect.top;
     
-    // Convert to logical canvas coordinates (unscaled, unpanned)
     const logicalX = mouseXOnScreenCanvas / scale;
     const logicalY = mouseYOnScreenCanvas / scale;
 
-    // New top-left for the node based on where the mouse is, minus the drag offset
     let newX = logicalX - dragOffset.x;
     let newY = logicalY - dragOffset.y;
-
-    // No longer restrict to positive coordinates
-    // newX = Math.max(0, newX);
-    // newY = Math.max(0, newY);
     
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
@@ -250,7 +231,7 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     toast({ title: "Export Successful", description: "Mindmap exported as JSON." });
   };
 
-  const handleZoom = (zoomIn: boolean, customScale?: number, pointer?: {x: number, y: number}) => {
+  const handleZoom = useCallback((zoomIn: boolean, customScale?: number, pointer?: {x: number, y: number}) => {
     const oldScale = scale;
     let newScale: number;
 
@@ -268,19 +249,11 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     let newPanY = pan.y;
 
     if (pointer && canvasContainerRef.current) {
-        // pointer.x/y are coords relative to the VISIBLE PART of the SCROLL VIEWPORT
         const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]') || canvasContainerRef.current;
         
-        // The logical point on the content that the pointer is over
-        // (pointer.x - pan.x) / oldScale gives the logical X before current pan & scale
-        // Corrected: pointer.x is already relative to viewport.
-        // Mouse position on the full pannable/scalable content:
         const mouseOnContentX = (pointer.x - pan.x) / oldScale;
         const mouseOnContentY = (pointer.y - pan.y) / oldScale;
         
-        // We want this logical point (mouseOnContentX, mouseOnContentY) to remain under the pointer (pointer.x, pointer.y) after scaling.
-        // newPan.x + mouseOnContentX * newScale = pointer.x
-        // newPan.y + mouseOnContentY * newScale = pointer.y
         newPanX = pointer.x - mouseOnContentX * newScale;
         newPanY = pointer.y - mouseOnContentY * newScale;
 
@@ -300,21 +273,27 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     
     setScale(newScale);
     setPan({ x: newPanX, y: newPanY });
-  };
+  }, [scale, pan]);
 
-  const handleWheelZoom = (event: React.WheelEvent<HTMLDivElement>) => {
+  const handleWheelZoom = useCallback((event: WheelEvent) => { // Changed to WheelEvent from React.WheelEvent
     event.preventDefault();
-    const scrollAreaViewportEl = event.currentTarget as HTMLDivElement; // The viewport itself
+    const scrollAreaViewportEl = event.currentTarget as HTMLDivElement; 
     const viewportRect = scrollAreaViewportEl.getBoundingClientRect();
     
     const mouseXInViewport = event.clientX - viewportRect.left;
     const mouseYInViewport = event.clientY - viewportRect.top;
 
     handleZoom(event.deltaY < 0, undefined, { x: mouseXInViewport, y: mouseYInViewport });
-  };
+  }, [handleZoom]);
   
-  const handlePanMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget || (canvasContentRef.current && event.target === canvasContentRef.current) ) {
+  const handlePanMouseDown = useCallback((event: MouseEvent) => { // Changed to MouseEvent
+    const target = event.target as HTMLElement;
+    // Check if the click is directly on the viewport or the canvas content background, not on a node or interactive element within a node.
+    if (target.closest('.node-card-draggable') || target.closest('button') || target.closest('input') || target.closest('textarea')) {
+      return; 
+    }
+
+    if (event.currentTarget && (target === event.currentTarget || (canvasContentRef.current && target === canvasContentRef.current)) ) {
       setIsPanning(true);
       panStartRef.current = {
         x: event.clientX - pan.x,
@@ -322,60 +301,60 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
       };
       (event.currentTarget as HTMLElement).style.cursor = 'grabbing';
     }
-  };
+  }, [pan]);
 
-  const handlePanMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handlePanMouseMove = useCallback((event: MouseEvent) => { // Changed to MouseEvent
     if (!isPanning || !panStartRef.current) return;
     setPan({
       x: event.clientX - panStartRef.current.x,
       y: event.clientY - panStartRef.current.y,
     });
-  };
+  }, [isPanning, panStartRef]); // panStartRef is a ref, its .current value changes don't trigger rerender for useCallback
 
-  const handlePanMouseUpOrLeave = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handlePanMouseUpOrLeave = useCallback((event: MouseEvent) => { // Changed to MouseEvent
     if (isPanning) {
         setIsPanning(false);
         panStartRef.current = null;
-        const scrollAreaViewportEl = canvasContainerRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-        if (scrollAreaViewportEl) {
-            (scrollAreaViewportEl as HTMLElement).style.cursor = 'grab';
+        if (canvasContainerRef.current) {
+            const scrollAreaViewportEl = canvasContainerRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+            if (scrollAreaViewportEl) {
+                (scrollAreaViewportEl as HTMLElement).style.cursor = 'grab';
+            }
         }
     }
-  };
+  }, [isPanning]);
   
-  const handleResetZoomPan = () => {
+  const handleResetZoomPan = useCallback(() => {
     setScale(1);
-    // setPan({ x: 0, y: 0 }); // This would reset to top-left
-    setInitialViewCentered(false); // Trigger recentering logic
-  };
+    setInitialViewCentered(false); 
+  }, []);
 
   useEffect(() => {
     const scrollAreaViewportEl = canvasContainerRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
     if (scrollAreaViewportEl) {
-      const currentViewport = scrollAreaViewportEl as HTMLDivElement; // To satisfy addEventListener/removeEventListener types
+      const currentViewport = scrollAreaViewportEl as HTMLDivElement;
 
-      currentViewport.addEventListener('wheel', handleWheelZoom as any, { passive: false });
-      currentViewport.addEventListener('mousedown', handlePanMouseDown as any);
+      currentViewport.addEventListener('wheel', handleWheelZoom, { passive: false });
+      currentViewport.addEventListener('mousedown', handlePanMouseDown);
       
-      // Attach move and up to window to allow dragging outside and releasing
-      window.addEventListener('mousemove', handlePanMouseMove as any);
-      window.addEventListener('mouseup', handlePanMouseUpOrLeave as any);
+      window.addEventListener('mousemove', handlePanMouseMove);
+      window.addEventListener('mouseup', handlePanMouseUpOrLeave);
       
       currentViewport.style.cursor = 'grab';
 
       return () => {
-        currentViewport.removeEventListener('wheel', handleWheelZoom as any);
-        currentViewport.removeEventListener('mousedown', handlePanMouseDown as any);
-        window.removeEventListener('mousemove', handlePanMouseMove as any);
-        window.removeEventListener('mouseup', handlePanMouseUpOrLeave as any);
+        currentViewport.removeEventListener('wheel', handleWheelZoom);
+        currentViewport.removeEventListener('mousedown', handlePanMouseDown);
+        window.removeEventListener('mousemove', handlePanMouseMove);
+        window.removeEventListener('mouseup', handlePanMouseUpOrLeave);
       };
     }
-  }, [isPanning, pan, scale, handleZoom]); // Re-attach if these handlers change (they shouldn't often, but good practice)
+  }, [handleWheelZoom, handlePanMouseDown, handlePanMouseMove, handlePanMouseUpOrLeave]);
 
 
   if (!mindmap) {
     return (
-      <div className="text-center py-10 flex flex-col items-center gap-4">
+      <div className="flex flex-col h-full flex-grow items-center justify-center space-y-4 text-center py-10">
         <AlertTriangle className="w-16 h-16 text-destructive" />
         <h2 className="text-2xl font-bold">Mindmap Not Found</h2>
         <p className="text-muted-foreground">This mindmap may have been deleted or the ID is incorrect.</p>
@@ -392,7 +371,6 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
 
   return (
     <div className="flex flex-col h-full flex-grow space-y-4">
-      {/* Top Control Panel */}
       <div className="p-4 border rounded-lg bg-card shadow-md space-y-4 flex-shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -433,19 +411,20 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
         </div>
       </div>
 
-      {/* Mindmap Canvas Area */}
       <ScrollArea 
         ref={canvasContainerRef}
-        className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[300px] sm:min-h-[400px] relative overflow-hidden" 
+        className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[400px] sm:min-h-[500px] relative overflow-hidden" 
       >
         <div 
           ref={canvasContentRef}
-          className="relative p-4" // Removed min-w-max, min-h-full. Let content define size
+          className="relative p-4 border-2 border-dashed border-border" 
           style={{ 
-            width: '400vw', height: '400vh', // Keep large logical canvas for node placement
+            width: '400vw', height: '400vh', 
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             transformOrigin: '0 0', 
+            pointerEvents: 'auto', // Ensure it can receive pointer events for dropping
           }}
+          onDragEnter={handleDragEnter} // Added
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
@@ -458,6 +437,7 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
               onDelete={requestDeleteNode}
               onAddChild={handleAddChildNode}
               onDragStart={handleDragStart}
+              className="node-card-draggable" // Added class for pan mousedown check
             />
           ))}
 
@@ -469,14 +449,13 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
               if (!parentNode) return null;
 
               const startX = parentNode.x + NODE_CARD_WIDTH / 2;
-              const startY = parentNode.y + NODE_HEADER_HEIGHT; // Connect from bottom of parent header
+              const startY = parentNode.y + NODE_HEADER_HEIGHT; 
 
               const endX = node.x + NODE_CARD_WIDTH / 2;
-              const endY = node.y; // Connect to top of child
+              const endY = node.y; 
 
               const strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))";
               const sCurveOffset = Math.max(20, Math.min(80, Math.abs(endY - startY) / 2));
-
 
               const pathData = `M ${startX} ${startY} C ${startX} ${startY + sCurveOffset}, ${endX} ${endY - sCurveOffset}, ${endX} ${endY}`;
 
@@ -495,17 +474,13 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
           {allNodes.length === 0 && !draggedNodeId && ( 
             <div 
               className="absolute inset-0 flex items-center justify-center pointer-events-none" 
-              // Style to make this message appear in the center of the *viewport* regardless of pan/scale
               style={{ 
-                transform: `translate(${-pan.x}px, ${-pan.y}px) scale(${1/scale})`,
-                width: '100%', // Ensure it uses viewport width for centering
-                height: '100%', // Ensure it uses viewport height for centering
+                transform: `translate(${-pan.x / scale}px, ${-pan.y / scale}px)`, // Corrected to account for own scale
+                width: `${100 / scale}%`, 
+                height: `${100 / scale}%`,
                }}
             >
-              <div 
-                className="text-muted-foreground text-center py-10 text-lg bg-background/80 p-6 rounded-md"
-                style={{transform: `translate(${(pan.x)*(1/scale-1)}px, ${(pan.y)*(1/scale-1)}px)`}} // Counteract parent's pan slightly
-              >
+              <div className="text-muted-foreground text-center py-10 text-lg bg-background/80 p-6 rounded-md">
                 This mindmap is empty. Add a root idea to begin!
               </div>
             </div>
@@ -516,13 +491,13 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
       </ScrollArea>
       
       <div className="fixed bottom-4 right-4 z-20 flex flex-col gap-2">
-        <Button onClick={() => handleZoom(true)} size="icon" aria-label="Zoom In">
+        <Button onClick={() => handleZoom(true)} size="icon" variant="outline" aria-label="Zoom In" className="bg-background/80 hover:bg-muted">
           <ZoomIn />
         </Button>
-        <Button onClick={() => handleZoom(false)} size="icon" aria-label="Zoom Out">
+        <Button onClick={() => handleZoom(false)} size="icon" variant="outline" aria-label="Zoom Out" className="bg-background/80 hover:bg-muted">
           <ZoomOut />
         </Button>
-        <Button onClick={handleResetZoomPan} size="icon" aria-label="Reset Zoom and Pan">
+        <Button onClick={handleResetZoomPan} size="icon" variant="outline" aria-label="Reset Zoom and Pan" className="bg-background/80 hover:bg-muted">
           <RefreshCcw />
         </Button>
       </div>
@@ -559,3 +534,4 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     </div>
   );
 }
+
