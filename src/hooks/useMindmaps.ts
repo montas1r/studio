@@ -7,12 +7,12 @@ import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorag
 import { v4 as uuidv4 } from 'uuid';
 
 // Constants for initial node placement
-const INITIAL_ROOT_X = 50;
-const INITIAL_ROOT_Y = 50;
-const ROOT_X_SPACING = 350; // Horizontal spacing between root nodes
-const CHILD_X_OFFSET = 0; // Horizontal offset for child nodes relative to parent
-const CHILD_Y_OFFSET = 150; // Vertical offset for child nodes relative to parent
-const NODE_WIDTH = 300; // Assumed default node width for some calculations, can be dynamic later
+const INITIAL_ROOT_X = 0; // Changed from 50 to 0
+const INITIAL_ROOT_Y = 0; // Changed from 50 to 0
+const ROOT_X_SPACING = 350; 
+const CHILD_X_OFFSET = 0; 
+const CHILD_Y_OFFSET = 150; 
+const NODE_WIDTH = 300; 
 
 export function useMindmaps() {
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
@@ -20,44 +20,47 @@ export function useMindmaps() {
 
   useEffect(() => {
     const loadedMindmaps = getMindmapsFromStorage();
-    // Ensure existing mindmaps have x/y coordinates if loaded from older versions
     const migratedMindmaps = loadedMindmaps.map(m => {
       let needsUpdate = false;
       const newNodes = { ...m.data.nodes };
-      let currentX = INITIAL_ROOT_X;
+      let currentRootX = INITIAL_ROOT_X; // Start roots from the new initial X
       
       m.data.rootNodeIds.forEach((rootId, index) => {
         if (newNodes[rootId] && (newNodes[rootId].x === undefined || newNodes[rootId].y === undefined)) {
           newNodes[rootId] = {
             ...newNodes[rootId],
-            x: INITIAL_ROOT_X + index * ROOT_X_SPACING,
+            x: INITIAL_ROOT_X + index * ROOT_X_SPACING, // Position based on new initial
             y: INITIAL_ROOT_Y
           };
           needsUpdate = true;
+        }
+        // Update currentRootX for potential non-root nodes that might become roots if logic changes
+        if (newNodes[rootId] && newNodes[rootId].x !== undefined) {
+             currentRootX = Math.max(currentRootX, newNodes[rootId].x + ROOT_X_SPACING);
+        } else {
+            currentRootX += ROOT_X_SPACING;
         }
       });
 
       Object.keys(newNodes).forEach(nodeId => {
         const node = newNodes[nodeId];
         if (node.parentId && newNodes[node.parentId] && (node.x === undefined || node.y === undefined)) {
-            // Basic initial placement for children if missing coordinates
-            // This won't be perfect for old data without a proper layout algorithm
             const parentNode = newNodes[node.parentId];
             const siblingIndex = parentNode.childIds.indexOf(nodeId);
             newNodes[nodeId] = {
                 ...node,
-                x: parentNode.x + CHILD_X_OFFSET + (siblingIndex - (parentNode.childIds.length -1) / 2) * (NODE_WIDTH + 50), // Spread children a bit
+                x: parentNode.x + CHILD_X_OFFSET + (siblingIndex - (parentNode.childIds.length -1) / 2) * (NODE_WIDTH / 3 + 10), // Spread children less aggressively
                 y: parentNode.y + CHILD_Y_OFFSET,
             };
             needsUpdate = true;
         } else if (!node.parentId && (node.x === undefined || node.y === undefined)) {
-            // Root node without coordinates - shouldn't happen if rootNodeIds loop worked
+            // This case should ideally be covered by the rootNodeIds loop
              newNodes[nodeId] = {
                 ...newNodes[nodeId],
-                x: currentX,
+                x: currentRootX, // Use the tracked currentRootX
                 y: INITIAL_ROOT_Y
             };
-            currentX += ROOT_X_SPACING;
+            currentRootX += ROOT_X_SPACING;
             needsUpdate = true;
         }
       });
@@ -111,7 +114,7 @@ export function useMindmaps() {
 
   const addNode = useCallback((mindmapId: string, parentId: string | null = null, nodeDetails: { title: string; description: string; emoji?: string }) => {
     const mindmap = getMindmapById(mindmapId);
-    if (!mindmap) return;
+    if (!mindmap) return undefined; // Return undefined if mindmap not found
 
     const newNodeId = uuidv4();
     let x = INITIAL_ROOT_X;
@@ -120,14 +123,12 @@ export function useMindmaps() {
     if (parentId) {
       const parentNode = mindmap.data.nodes[parentId];
       if (parentNode) {
-        // Position new child relative to parent
-        // Basic: below parent, slightly offset if multiple children
         const siblingCount = parentNode.childIds.length;
-        x = parentNode.x + CHILD_X_OFFSET + (siblingCount - (parentNode.childIds.length / 2)) * 20; // Simple horizontal spread
+        x = parentNode.x + CHILD_X_OFFSET + (siblingCount - (parentNode.childIds.length / 2)) * 20; 
         y = parentNode.y + CHILD_Y_OFFSET;
       }
     } else {
-      // New root node: position based on existing root nodes
+      // New root node: position based on new initial values and existing root nodes
       x = INITIAL_ROOT_X + mindmap.data.rootNodeIds.length * ROOT_X_SPACING;
       y = INITIAL_ROOT_Y;
     }
@@ -156,7 +157,7 @@ export function useMindmaps() {
     }
     
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
-    return newNode;
+    return newNode; // Return the created node
   }, [getMindmapById, updateMindmap]);
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -183,19 +184,23 @@ export function useMindmaps() {
     if (!nodeToDelete) return nodes;
 
     let newNodes = { ...nodes };
+    // Iteratively delete children first to avoid issues if childIds array is modified during recursion
+    const childrenToDelete = [...nodeToDelete.childIds];
+    childrenToDelete.forEach(childId => {
+      newNodes = deleteNodeRecursive(newNodes, childId);
+    });
+    
+    // Now delete the node itself
     delete newNodes[nodeId];
 
+    // Update parent's childIds list
     if (nodeToDelete.parentId && newNodes[nodeToDelete.parentId]) {
       newNodes[nodeToDelete.parentId] = {
         ...newNodes[nodeToDelete.parentId],
         childIds: newNodes[nodeToDelete.parentId].childIds.filter(id => id !== nodeId),
       };
     }
-    
-    nodeToDelete.childIds.forEach(childId => {
-      newNodes = deleteNodeRecursive(newNodes, childId);
-    });
-    
+        
     return newNodes;
   };
 
@@ -207,7 +212,7 @@ export function useMindmaps() {
     const newNodes = deleteNodeRecursive(mindmap.data.nodes, nodeId);
     
     let newRootNodeIds = mindmap.data.rootNodeIds;
-    if (!nodeToDelete.parentId) {
+    if (!nodeToDelete.parentId) { // If it was a root node
       newRootNodeIds = mindmap.data.rootNodeIds.filter(id => id !== nodeId);
     }
 
