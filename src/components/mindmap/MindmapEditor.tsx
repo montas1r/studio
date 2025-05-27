@@ -14,13 +14,23 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; 
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MindmapEditorProps {
   mindmapId: string;
 }
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
-  const { getMindmapById, addNode, updateNode, deleteNode } = useMindmaps();
+  const { getMindmapById, addNode, updateNode, deleteNode: deleteNodeFromHook } = useMindmaps();
   const mindmap = getMindmapById(mindmapId);
   
   const [editingNode, setEditingNode] = useState<NodeData | null>(null);
@@ -28,6 +38,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   
   const [newRootNodeTitle, setNewRootNodeTitle] = useState('');
   const [newRootNodeDescription, setNewRootNodeDescription] = useState('');
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<{ id: string; title: string | undefined } | null>(null);
 
   const { toast } = useToast();
 
@@ -61,14 +74,23 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
   };
 
-  const handleDeleteNode = (nodeId: string) => {
+  const requestDeleteNode = (nodeId: string) => {
     if (!mindmap) return;
-    const nodeToDelete = mindmap.data.nodes[nodeId];
-    if (window.confirm(`Are you sure you want to delete node "${nodeToDelete?.title}" and all its children? This action cannot be undone.`)) {
-      deleteNode(mindmap.id, nodeId);
-      toast({ title: "Node Deleted", description: `Node "${nodeToDelete?.title}" and its children removed.`, variant: "destructive" });
+    const node = mindmap.data.nodes[nodeId];
+    if (node) {
+      setNodeToDelete({ id: nodeId, title: node.title });
+      setIsDeleteDialogOpen(true);
     }
   };
+
+  const confirmDeleteNode = () => {
+    if (!mindmap || !nodeToDelete) return;
+    deleteNodeFromHook(mindmap.id, nodeToDelete.id);
+    toast({ title: "Node Deleted", description: `Node "${nodeToDelete.title}" and its children removed.`, variant: "destructive" });
+    setIsDeleteDialogOpen(false);
+    setNodeToDelete(null);
+  };
+
 
   const renderNodeTree = useCallback((parentId: string | null, parentIsRootForWireColorContext?: boolean): (React.ReactElement | null)[] => {
     if (!mindmap) return [];
@@ -86,7 +108,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           key={node.id}
           node={node}
           onEdit={handleEditNode}
-          onDelete={handleDeleteNode}
+          onDelete={requestDeleteNode} // Changed to requestDeleteNode
           onAddChild={handleAddChildNode}
           renderChildren={(childNodeId, parentIsRoot) => renderNodeTree(childNodeId, parentIsRoot)}
           hasChildren={node.childIds && node.childIds.length > 0}
@@ -99,7 +121,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         />
       );
     }).filter(Boolean) as (React.ReactElement | null)[]; 
-  }, [mindmap, handleAddChildNode, handleEditNode, handleDeleteNode]);
+  }, [mindmap, handleAddChildNode, handleEditNode, requestDeleteNode]);
 
 
   const handleExportJson = () => {
@@ -180,7 +202,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       </div>
       
       {/* Mindmap Canvas Section */}
-      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-300px)] sm:min-h-[calc(100vh-250px)]"> {/* Adjusted min-height */}
+      <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-background shadow-inner flex-grow min-h-[calc(100vh-350px)] sm:min-h-[calc(100vh-300px)]"> {/* Adjusted min-height */}
         <div className={cn(
           "p-6 min-w-max flex", 
           isSingleRootNoChildren && Object.keys(mindmap.data.nodes).length === 1 // Check if it's truly just ONE node total
@@ -196,15 +218,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           )}
           {rootNodeElements.length > 0 && (
              <div className={cn(
-                "flex flex-row gap-8 pb-4", // Ensure consistent gap for root columns
+                "flex flex-row gap-8 pb-4", 
                 isSingleRootNoChildren && Object.keys(mindmap.data.nodes).length === 1 ? "" : "items-start" 
               )}>
-              {/* Ensure each root node and its children form a distinct column */}
               {mindmap.data.rootNodeIds.map((rootId) => {
                 const nodeComponent = rootNodeElements.find(el => el?.key === rootId);
                 if (!nodeComponent) return null;
                 return (
-                  <div key={rootId} className="flex flex-col items-center"> {/* Column for each root */}
+                  <div key={rootId} className="flex flex-col items-center">
                     {nodeComponent}
                   </div>
                 );
@@ -224,7 +245,23 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           onSave={handleSaveNode}
         />
       )}
+
+      {nodeToDelete && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the node "{nodeToDelete.title}" and all its children? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setNodeToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteNode}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
-
