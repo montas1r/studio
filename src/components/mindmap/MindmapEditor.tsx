@@ -69,7 +69,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     }
   };
 
-  const renderNodeTree = useCallback((parentId: string | null): React.ReactNode[] => {
+  const renderNodeTree = useCallback((parentId: string | null, parentIsRootForWireColorContext?: boolean): React.ReactNode[] => {
     if (!mindmap) return [];
     const { nodes, rootNodeIds } = mindmap.data;
     
@@ -87,10 +87,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           onEdit={handleEditNode}
           onDelete={handleDeleteNode}
           onAddChild={handleAddChildNode}
-          renderChildren={() => renderNodeTree(node.id)}
+          renderChildren={(childNodeId, parentIsRoot) => renderNodeTree(childNodeId, parentIsRoot)}
           hasChildren={node.childIds && node.childIds.length > 0}
           isRoot={!node.parentId}
-          className={!node.parentId ? "min-w-[320px] md:min-w-[380px]" : "min-w-[300px] md:min-w-[350px]"}
+          parentIsRootForWireColor={parentIsRootForWireColorContext} // Pass this down for wire coloring
+          className={cn(
+            !node.parentId ? "min-w-[320px] md:min-w-[380px]" : "min-w-[300px] md:min-w-[350px]",
+            "my-1" // Add some vertical margin between sibling cards
+          )}
         />
       );
     }).filter(Boolean) as React.ReactNode[]; 
@@ -120,7 +124,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     );
   }
 
-  const rootNodesContent = renderNodeTree(null);
+  const rootNodesContent = renderNodeTree(null, undefined); // Initial call, parentIsRootForWireColor is not applicable
   const isSingleRootNode = rootNodesContent.length === 1 && mindmap.data.rootNodeIds.length === 1;
 
   return (
@@ -170,11 +174,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           )}
           {rootNodesContent.length > 0 && (
              <div className={cn(
-                "flex flex-row gap-8 pb-4",
+                "flex flex-row gap-8 pb-4", // Horizontal layout for root nodes
                 isSingleRootNode ? "" : "items-start" 
               )}>
               {rootNodesContent.map((nodeComponent, index) => (
-                <div key={index} className="flex flex-col items-center"> 
+                <div key={index} className="flex flex-col items-center"> {/* Each root node and its children form a column */}
                   {nodeComponent}
                 </div>
               ))}
@@ -196,3 +200,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </div>
   );
 }
+
