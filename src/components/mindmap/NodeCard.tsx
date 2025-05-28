@@ -1,12 +1,11 @@
 
 "use client";
 
-import type { NodeData } from '@/types/mindmap';
+import type { NodeData, PaletteColorKey } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-// Image component removed for this rollback
 
 interface NodeCardProps {
   node: NodeData;
@@ -19,7 +18,7 @@ interface NodeCardProps {
 }
 
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
-  const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab";
+  const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab transition-all duration-150 ease-out";
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
 
   const rootNodeCardClasses = "bg-primary/10 border-primary";
@@ -32,35 +31,38 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', // Ensure this matches NODE_CARD_WIDTH from useMindmaps if used elsewhere
+    width: '300px', 
   };
 
   let currentCardClasses = cardBaseClasses;
   let currentHeaderClasses = headerBaseClasses;
   let currentButtonTextClass = "";
-  let descriptionBgClass = "bg-card"; // Default description background
+  let descriptionBgClass = "bg-card"; 
 
   if (node.customBackgroundColor) {
     const customColorVar = `var(--${node.customBackgroundColor})`;
     cardStyle.backgroundColor = `hsl(${customColorVar})`;
-    currentCardClasses = cn(cardBaseClasses, `border-[hsl(${customColorVar})]`);
-    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent');
-    currentButtonTextClass = "text-[hsl(var(--card-foreground))] dark:text-[hsl(var(--card-foreground))]";
-    // Use HSL with alpha for description background
-    descriptionBgClass = `bg-[hsl(${customColorVar}/0.2)]`; // 20% opacity of the custom color
+    currentCardClasses = cn(cardBaseClasses, `border-[hsl(${customColorVar})]`); // Use HSL for border too
+    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); // Make header transparent to show node bg
+    currentButtonTextClass = "text-[hsl(var(--card-foreground))] dark:text-[hsl(var(--card-foreground))]"; // Ensure good contrast for buttons
+    descriptionBgClass = `bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.2)]`; // Lighter version of custom color
+                                                                                    // Assumes you might add raw HSL values too
   } else {
     currentCardClasses = cn(cardBaseClasses, isRoot ? rootNodeCardClasses : childNodeCardClasses);
     currentHeaderClasses = cn(headerBaseClasses, isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses);
     currentButtonTextClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
-    descriptionBgClass = isRoot ? "bg-primary/10" : "bg-accent/10"; // 10% opacity for theme colors
+    descriptionBgClass = isRoot ? "bg-primary/10" : "bg-accent/10";
   }
+  
+  const buttonHoverBgClass = node.customBackgroundColor 
+    ? "hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)] dark:hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)]" // Lighten/darken based on foreground
+    : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30");
 
-  // const shouldRenderImage = node.imageUrl && isValidHttpUrl(node.imageUrl); // Removed for this rollback
 
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className, "node-card-draggable")}
+      className={cn(currentCardClasses, className, "node-card-draggable")} // Added for specific targeting if needed
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
@@ -73,10 +75,10 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
           </h3>
         </div>
         <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
-          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className={cn("h-7 w-7", currentButtonTextClass, node.customBackgroundColor ? "hover:bg-black/10 dark:hover:bg-white/10" : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30"))}>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className={cn("h-7 w-7", currentButtonTextClass, buttonHoverBgClass)}>
             <Edit3 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", currentButtonTextClass, node.customBackgroundColor ? "hover:bg-black/10 dark:hover:bg-white/10" : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30"))} aria-label="Add child node">
+          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", currentButtonTextClass, buttonHoverBgClass)} aria-label="Add child node">
             <PlusCircle className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node" className={cn("h-7 w-7 text-destructive hover:bg-destructive/10")}>
@@ -85,18 +87,29 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
 
-      {/* Image display logic removed for this rollback */}
-
       {node.description && (
         <div className={cn(
             "p-3 text-sm rounded-b-xl flex-grow",
-            descriptionBgClass
+            descriptionBgClass,
+            node.customBackgroundColor ? 'text-[hsl(var(--card-foreground))] opacity-80' : 'text-card-foreground/80'
         )}>
-          <p className="whitespace-pre-wrap text-card-foreground/80 text-xs leading-relaxed break-words">{node.description}</p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         </div>
       )}
-      {/* Placeholder if no description and no image */}
+      {/* Placeholder if no description */}
       {(!node.description) && <div className="min-h-[20px]"></div>}
     </div>
   );
+}
+
+// Helper to check for valid HTTP/HTTPS URL (basic check)
+function isValidHttpUrl(string?: string) {
+  if (!string) return false;
+  let url;
+  try {
+    url = new URL(string);
+  } catch (_) {
+    return false;  
+  }
+  return url.protocol === "http:" || url.protocol === "https:";
 }
