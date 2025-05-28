@@ -32,11 +32,18 @@
     --synapse-light-gray: 220 13% 97%; /* #F9FAFB */
 
     /* Chart colors (Used for node palette) */
-    --chart-1: 243 77% 59%;  /* Indigo - Synapse Primary */
-    --chart-2: 340 80% 60%; /* Pink/Rose */
-    --chart-3: 160 60% 45%; /* Teal/Green */
-    --chart-4: 40 80% 55%;  /* Amber/Orange */
-    --chart-5: 200 70% 50%; /* Sky Blue */
+    /* HSL values for --chart-N should be just the numbers, e.g., "243 77% 59%" */
+    /* -raw versions are for when Tailwind opacity shorthand can't be used with hsl(var()) */
+    --chart-1-raw: 243 77% 59%;
+    --chart-1: var(--chart-1-raw); /* Indigo - Synapse Primary */
+    --chart-2-raw: 340 80% 60%;
+    --chart-2: var(--chart-2-raw); /* Pink/Rose */
+    --chart-3-raw: 160 60% 45%;
+    --chart-3: var(--chart-3-raw); /* Teal/Green */
+    --chart-4-raw: 40 80% 55%;
+    --chart-4: var(--chart-4-raw);  /* Amber/Orange */
+    --chart-5-raw: 200 70% 50%;
+    --chart-5: var(--chart-5-raw); /* Sky Blue */
 
 
     /* Sidebar specific colors (if a sidebar were to be used) */
@@ -72,11 +79,16 @@
     --ring: 243 77% 59%; /* Synapse Indigo for ring */
 
     /* Chart colors - Light theme adjustments */
-    --chart-1: 243 77% 59%;  /* Indigo */
-    --chart-2: 340 70% 55%; /* Pink/Rose */
-    --chart-3: 160 50% 40%; /* Teal/Green */
-    --chart-4: 35 70% 50%;  /* Amber/Orange */
-    --chart-5: 195 60% 45%; /* Sky Blue */
+    --chart-1-raw: 243 77% 59%;
+    --chart-1: var(--chart-1-raw);  /* Indigo */
+    --chart-2-raw: 340 70% 55%;
+    --chart-2: var(--chart-2-raw); /* Pink/Rose */
+    --chart-3-raw: 160 50% 40%;
+    --chart-3: var(--chart-3-raw); /* Teal/Green */
+    --chart-4-raw: 35 70% 50%;
+    --chart-4: var(--chart-4-raw);  /* Amber/Orange */
+    --chart-5-raw: 195 60% 45%;
+    --chart-5: var(--chart-5-raw); /* Sky Blue */
 
      /* Sidebar specific colors - Light theme */
     --sidebar-background: 0 0% 97%;
