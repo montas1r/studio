@@ -2,18 +2,21 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput } from '@/types/mindmap';
+import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput, PaletteColorKey } from '@/types/mindmap';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
+// Module-level constants for node sizing
+const NODE_CARD_WIDTH = 300;
+
 export function useMindmaps() {
-  // Moved constants inside the hook for robust initialization
-  const NODE_CARD_WIDTH = 300;
+  // Hook-level constants for initial placement logic
   const INITIAL_ROOT_X = 0;
   const INITIAL_ROOT_Y = 0;
-  const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
-  const CHILD_X_OFFSET = 0;
+  const ROOT_X_SPACING = NODE_CARD_WIDTH + 50; // Uses module-level NODE_CARD_WIDTH
+  const CHILD_X_OFFSET = 0; 
   const CHILD_Y_OFFSET = 180;
+
 
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,11 +45,7 @@ export function useMindmaps() {
         } else if (node?.x !== undefined) {
            localCurrentRootX = Math.max(localCurrentRootX, node.x + ROOT_X_SPACING);
         }
-        // Remove fields not present in V1.0.0 NodeData
-        if (newNodes[rootId]?.hasOwnProperty('customBackgroundColor')) {
-          delete (newNodes[rootId] as any).customBackgroundColor;
-          needsUpdate = true;
-        }
+         // Ensure no old fields from pre-v1.0.1 like imageUrl persist
         if (newNodes[rootId]?.hasOwnProperty('imageUrl')) {
           delete (newNodes[rootId] as any).imageUrl;
           needsUpdate = true;
@@ -73,11 +72,7 @@ export function useMindmaps() {
             localCurrentRootX += ROOT_X_SPACING;
           }
         }
-        // Remove fields not present in V1.0.0 NodeData
-        if (newNodes[nodeId]?.hasOwnProperty('customBackgroundColor')) {
-          delete (newNodes[nodeId] as any).customBackgroundColor;
-          needsUpdate = true;
-        }
+         // Ensure no old fields like imageUrl persist
         if (newNodes[nodeId]?.hasOwnProperty('imageUrl')) {
           delete (newNodes[nodeId] as any).imageUrl;
           needsUpdate = true;
@@ -92,7 +87,7 @@ export function useMindmaps() {
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, NODE_CARD_WIDTH, ROOT_X_SPACING]); // Dependencies for constants defined in hook
+  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -132,24 +127,35 @@ export function useMindmaps() {
     setMindmaps(prev => prev.filter(m => m.id !== id));
   }, []);
 
-  const addNode = useCallback((mindmapId: string, parentId: string | null = null, nodeDetails: EditNodeInput) => {
+  const addNode = useCallback((mindmapId: string, parentId: string | null = null, nodeDetails: EditNodeInput, initialX?: number, initialY?: number) => {
     const mindmap = getMindmapById(mindmapId);
     if (!mindmap) return undefined;
 
     const newNodeId = uuidv4();
-    let x = INITIAL_ROOT_X; // Use hook-local constants
-    let y = INITIAL_ROOT_Y;
+    let x = initialX;
+    let y = initialY;
 
     const currentNodes = mindmap.data.nodes;
     const currentRootNodeIds = Array.isArray(mindmap.data.rootNodeIds) ? mindmap.data.rootNodeIds : [];
 
-    if (parentId) {
-        const parentNode = currentNodes[parentId];
-        if (parentNode) {
-            const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
-            const siblingCount = parentChildIds.length;
-            x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
-            y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
+    if (x === undefined || y === undefined) { // Calculate position if not provided
+        if (parentId) {
+            const parentNode = currentNodes[parentId];
+            if (parentNode) {
+                const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
+                const siblingCount = parentChildIds.length;
+                x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
+                y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
+            } else { 
+                let maxRootX = -Infinity;
+                currentRootNodeIds.forEach(rootId => {
+                    const rNode = currentNodes[rootId];
+                    if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
+                });
+                x = currentRootNodeIds.length > 0 ? maxRootX + ROOT_X_SPACING : INITIAL_ROOT_X;
+                y = INITIAL_ROOT_Y;
+                parentId = null; 
+            }
         } else { 
             let maxRootX = -Infinity;
             currentRootNodeIds.forEach(rootId => {
@@ -158,17 +164,9 @@ export function useMindmaps() {
             });
             x = currentRootNodeIds.length > 0 ? maxRootX + ROOT_X_SPACING : INITIAL_ROOT_X;
             y = INITIAL_ROOT_Y;
-            parentId = null; 
         }
-    } else { 
-        let maxRootX = -Infinity;
-        currentRootNodeIds.forEach(rootId => {
-            const rNode = currentNodes[rootId];
-            if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
-        });
-        x = currentRootNodeIds.length > 0 ? maxRootX + ROOT_X_SPACING : INITIAL_ROOT_X;
-        y = INITIAL_ROOT_Y;
     }
+
 
     const newNode: NodeData = {
       id: newNodeId,
@@ -177,9 +175,9 @@ export function useMindmaps() {
       emoji: nodeDetails.emoji,
       parentId,
       childIds: [],
-      x,
-      y,
-      // No customBackgroundColor in V1.0.0
+      x: x as number, // Assert as number after calculation/provision
+      y: y as number,
+      customBackgroundColor: nodeDetails.customBackgroundColor || undefined,
     };
 
     const updatedNodes = { ...currentNodes, [newNodeId]: newNode };
@@ -199,7 +197,7 @@ export function useMindmaps() {
 
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET, NODE_CARD_WIDTH]);
+  }, [getMindmapById, updateMindmap, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -211,7 +209,7 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      // No customBackgroundColor in V1.0.0
+      customBackgroundColor: updates.customBackgroundColor || undefined,
     };
 
     const updatedNodes = {
