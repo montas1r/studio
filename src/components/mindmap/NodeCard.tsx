@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { NodeData } from '@/types/mindmap';
+import type { NodeData, PaletteColorKey } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
@@ -34,10 +34,10 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
 
   // Theme colors (fallbacks if no custom color)
-  const rootNodeCardClasses = "bg-primary/10 border-primary";
+  const rootNodeCardClasses = "bg-primary/10 border-primary"; // Main card slight tint
   const rootNodeHeaderClasses = "bg-primary/20 text-primary-foreground";
 
-  const childNodeCardClasses = "bg-accent/10 border-accent";
+  const childNodeCardClasses = "bg-accent/10 border-accent"; // Main card slight tint
   const childNodeHeaderClasses = "bg-accent/20 text-accent-foreground";
 
   const cardStyle: React.CSSProperties = {
@@ -49,21 +49,20 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
 
   let currentCardClasses = cardBaseClasses;
   let currentHeaderClasses = headerBaseClasses;
-  let currentButtonTextClass = ""; // For button text color when custom bg is applied
+  let currentButtonTextClass = "";
+  let descriptionBgClass = "";
 
   if (node.customBackgroundColor) {
     cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-    // For custom backgrounds, we might want a neutral border, or derive it.
-    // For simplicity, let's use a slightly darker version of the custom color for the border if possible,
-    // or a generic border. For now, we'll use a standard border.
-    currentCardClasses = cn(cardBaseClasses, 'border-foreground/20'); // A neutral border for custom colors
-    // Header might need dynamic text color for contrast, for now, use card-foreground
-    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); // Make header transparent to show node's custom bg
+    currentCardClasses = cn(cardBaseClasses, `border-[hsl(var(--${node.customBackgroundColor}))]`); // Border same as custom color
+    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); // Header transparent to show node's custom bg
     currentButtonTextClass = "text-card-foreground dark:text-card-foreground"; // Ensure buttons are visible
+    descriptionBgClass = `bg-[hsl(var(--${node.customBackgroundColor}))/0.2]`; // Lighter version of custom color, e.g. 20% opacity
   } else {
     currentCardClasses = cn(cardBaseClasses, isRoot ? rootNodeCardClasses : childNodeCardClasses);
     currentHeaderClasses = cn(headerBaseClasses, isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses);
     currentButtonTextClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
+    descriptionBgClass = isRoot ? "bg-primary/10" : "bg-accent/10"; // 10% opacity of theme primary/accent
   }
 
   const shouldRenderImage = node.imageUrl && isValidHttpUrl(node.imageUrl);
@@ -71,7 +70,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className)}
+      className={cn(currentCardClasses, className, "node-card-draggable")} // Added node-card-draggable
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
@@ -101,18 +100,21 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
           <Image
             src={node.imageUrl!}
             alt={`Image for ${node.title}`}
-            fill // Replaced layout="fill" objectFit="cover" with fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example sizes, adjust as needed
-            style={{ objectFit: 'cover' }} // Replaced layout="fill" objectFit="cover" with fill
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            style={{ objectFit: 'cover' }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
+              target.style.display = 'none'; // Hide broken image
               const parent = target.parentElement;
               if (parent) {
-                const placeholder = document.createElement('div');
-                placeholder.className = "w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs";
-                placeholder.textContent = "Invalid Image";
-                parent.appendChild(placeholder);
+                // Check if placeholder already exists
+                if (!parent.querySelector('.image-placeholder')) {
+                  const placeholder = document.createElement('div');
+                  placeholder.className = "image-placeholder w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs p-2 text-center";
+                  placeholder.textContent = "Invalid or inaccessible image URL";
+                  parent.appendChild(placeholder);
+                }
               }
             }}
             data-ai-hint="node content image"
@@ -122,8 +124,8 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
 
       {node.description && (
         <div className={cn(
-            "p-3 text-sm rounded-b-xl flex-grow", // Added flex-grow for description
-             node.customBackgroundColor ? 'bg-transparent' : (isRoot ? "bg-primary/5" : "bg-accent/5")
+            "p-3 text-sm rounded-b-xl flex-grow",
+            descriptionBgClass // Apply the dynamic background class here
         )}>
           <p className="whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed break-words">{node.description}</p>
         </div>
