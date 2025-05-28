@@ -33,15 +33,15 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
-const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; // Unique value for the "Default Theme" option
+const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; 
 
 const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | typeof NO_CUSTOM_COLOR_VALUE; colorSample?: string }> = [
   { label: 'Default Theme', value: NO_CUSTOM_COLOR_VALUE },
-  { label: 'Coral', value: 'chart-1', colorSample: 'hsl(var(--chart-1))' },
-  { label: 'Teal', value: 'chart-2', colorSample: 'hsl(var(--chart-2))' },
-  { label: 'Indigo', value: 'chart-3', colorSample: 'hsl(var(--chart-3))' },
-  { label: 'Amber', value: 'chart-4', colorSample: 'hsl(var(--chart-4))' },
-  { label: 'Pink', value: 'chart-5', colorSample: 'hsl(var(--chart-5))' },
+  { label: 'Indigo', value: 'chart-1', colorSample: 'hsl(var(--chart-1))' },
+  { label: 'Pink/Rose', value: 'chart-2', colorSample: 'hsl(var(--chart-2))' },
+  { label: 'Teal/Green', value: 'chart-3', colorSample: 'hsl(var(--chart-3))' },
+  { label: 'Amber/Orange', value: 'chart-4', colorSample: 'hsl(var(--chart-4))' },
+  { label: 'Sky Blue', value: 'chart-5', colorSample: 'hsl(var(--chart-5))' },
 ];
 
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
@@ -66,7 +66,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const handleSubmit = () => {
     if (node && title.trim()) {
       onSave(node.id, {
-        title,
+        title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
@@ -128,7 +128,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               onChange={(e) => setEmoji(e.target.value)}
               className="col-span-3"
               placeholder="✨ (Optional)"
-              maxLength={2}
+              maxLength={2} // Emojis can be 1 or 2 chars
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -205,7 +205,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                       {opt.colorSample && (
                         <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
                       )}
-                       {opt.value === NO_CUSTOM_COLOR_VALUE && (
+                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( // For default theme option
                         <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
                       )}
                       {opt.label}
@@ -224,4 +224,3 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     </Dialog>
   );
 }
-

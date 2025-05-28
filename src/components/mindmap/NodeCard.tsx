@@ -34,10 +34,10 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
 
   // Theme colors (fallbacks if no custom color)
-  const rootNodeCardClasses = "bg-primary/10 border-primary"; // Main card slight tint
+  const rootNodeCardClasses = "bg-primary/10 border-primary"; 
   const rootNodeHeaderClasses = "bg-primary/20 text-primary-foreground";
 
-  const childNodeCardClasses = "bg-accent/10 border-accent"; // Main card slight tint
+  const childNodeCardClasses = "bg-accent/10 border-accent"; 
   const childNodeHeaderClasses = "bg-accent/20 text-accent-foreground";
 
   const cardStyle: React.CSSProperties = {
@@ -54,15 +54,16 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
 
   if (node.customBackgroundColor) {
     cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-    currentCardClasses = cn(cardBaseClasses, `border-[hsl(var(--${node.customBackgroundColor}))]`); // Border same as custom color
-    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); // Header transparent to show node's custom bg
-    currentButtonTextClass = "text-card-foreground dark:text-card-foreground"; // Ensure buttons are visible
-    descriptionBgClass = `bg-[hsl(var(--${node.customBackgroundColor}))/0.2]`; // Lighter version of custom color, e.g. 20% opacity
+    currentCardClasses = cn(cardBaseClasses, `border-[hsl(var(--${node.customBackgroundColor}))]`); 
+    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); 
+    // Attempt to make button text color adapt, might need more sophisticated contrast logic
+    currentButtonTextClass = "text-[hsl(var(--card-foreground))] dark:text-[hsl(var(--card-foreground))]";
+    descriptionBgClass = `bg-[hsl(var(--${node.customBackgroundColor}))/0.2]`; 
   } else {
     currentCardClasses = cn(cardBaseClasses, isRoot ? rootNodeCardClasses : childNodeCardClasses);
     currentHeaderClasses = cn(headerBaseClasses, isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses);
     currentButtonTextClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
-    descriptionBgClass = isRoot ? "bg-primary/10" : "bg-accent/10"; // 10% opacity of theme primary/accent
+    descriptionBgClass = isRoot ? "bg-primary/10" : "bg-accent/10"; 
   }
 
   const shouldRenderImage = node.imageUrl && isValidHttpUrl(node.imageUrl);
@@ -70,7 +71,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className, "node-card-draggable")} // Added node-card-draggable
+      className={cn(currentCardClasses, className, "node-card-draggable")}
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
@@ -78,7 +79,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
       <div className={cn(currentHeaderClasses)}>
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
           {node.emoji && <span className="text-lg mr-1.5 flex-shrink-0">{node.emoji}</span>}
-          <h3 className={cn("text-base font-semibold truncate", node.customBackgroundColor ? 'text-card-foreground' : (isRoot ? 'text-primary-foreground' : 'text-accent-foreground'))} title={node.title}>
+          <h3 className={cn("text-base font-semibold truncate", node.customBackgroundColor ? 'text-[hsl(var(--card-foreground))]' : (isRoot ? 'text-primary-foreground' : 'text-accent-foreground'))} title={node.title}>
             {node.title}
           </h3>
         </div>
@@ -101,18 +102,17 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
             src={node.imageUrl!}
             alt={`Image for ${node.title}`}
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Adjusted sizes
             style={{ objectFit: 'cover' }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              target.style.display = 'none'; // Hide broken image
+              target.style.display = 'none'; 
               const parent = target.parentElement;
               if (parent) {
-                // Check if placeholder already exists
                 if (!parent.querySelector('.image-placeholder')) {
                   const placeholder = document.createElement('div');
                   placeholder.className = "image-placeholder w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs p-2 text-center";
-                  placeholder.textContent = "Invalid or inaccessible image URL";
+                  placeholder.textContent = "Invalid Image URL";
                   parent.appendChild(placeholder);
                 }
               }
@@ -125,12 +125,11 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
       {node.description && (
         <div className={cn(
             "p-3 text-sm rounded-b-xl flex-grow",
-            descriptionBgClass // Apply the dynamic background class here
+            descriptionBgClass 
         )}>
-          <p className="whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed break-words">{node.description}</p>
+          <p className="whitespace-pre-wrap text-card-foreground/80 text-xs leading-relaxed break-words">{node.description}</p>
         </div>
       )}
-      {/* Ensure card has min height if no description/image */}
       {(!node.description && !shouldRenderImage) && <div className="min-h-[20px]"></div>}
     </div>
   );

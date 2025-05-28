@@ -8,83 +8,77 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Define fundamental constants at module scope
 const NODE_CARD_WIDTH = 300;
+const INITIAL_ROOT_X = 0; // Centered for the first node, others spread out
+const INITIAL_ROOT_Y = 0;
+const ROOT_X_SPACING = NODE_CARD_WIDTH + 60; // Increased spacing
+const CHILD_X_OFFSET = 0; 
+const CHILD_Y_OFFSET = 180; // Vertical spacing between parent and child
 
 export function useMindmaps() {
-  // Define layout constants that might depend on NODE_CARD_WIDTH inside the hook
-  const INITIAL_ROOT_X = 0;
-  const INITIAL_ROOT_Y = 0;
-  const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
-  const CHILD_X_OFFSET = 0;
-  const CHILD_Y_OFFSET = 180; // Vertical spacing between parent and child
-
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadedMindmaps = getMindmapsFromStorage();
-    // Basic migration for nodes that might not have x,y
+    // Basic migration for nodes that might not have x,y or ensure rootNodeIds is array
     const migratedMindmaps = loadedMindmaps.map(m => {
       let needsUpdate = false;
       const newNodes = { ...m.data.nodes };
-      let currentRootX = INITIAL_ROOT_X;
+      let currentRootX = INITIAL_ROOT_X; // Start from initial for layout calculation
 
       const rootNodeIds = Array.isArray(m.data.rootNodeIds) ? m.data.rootNodeIds : [];
 
-      rootNodeIds.forEach((rootId) => {
+      // Initialize positions for root nodes if they don't exist
+      rootNodeIds.forEach((rootId, index) => {
         if (newNodes[rootId] && (newNodes[rootId].x === undefined || newNodes[rootId].y === undefined)) {
           newNodes[rootId] = {
             ...newNodes[rootId],
-            x: currentRootX,
+            x: INITIAL_ROOT_X + index * ROOT_X_SPACING, // Spread out root nodes
             y: INITIAL_ROOT_Y
           };
-          currentRootX += ROOT_X_SPACING;
           needsUpdate = true;
-        } else if (newNodes[rootId] && newNodes[rootId].x !== undefined) {
-           currentRootX = Math.max(currentRootX, (newNodes[rootId].x ?? 0) + ROOT_X_SPACING);
-        } else {
-            // Should not happen if rootNodeIds is correctly populated
-            currentRootX += ROOT_X_SPACING;
         }
       });
 
-      // Ensure all nodes have x, y. This is a very basic placement if missing.
+      // Initialize positions for child nodes if they don't exist
       Object.keys(newNodes).forEach(nodeId => {
         const node = newNodes[nodeId];
         if (node.x === undefined || node.y === undefined) {
-          needsUpdate = true;
-          if (node.parentId && newNodes[node.parentId]) {
-            const parentNode = newNodes[node.parentId];
-            const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
-            const siblingIndex = parentChildIds.indexOf(nodeId);
-            const numSiblings = parentChildIds.length;
-            const spreadWidth = (numSiblings - 1) * (NODE_CARD_WIDTH / 2 + 10);
-
-            newNodes[nodeId] = {
-              ...node,
-              x: (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingIndex * (NODE_CARD_WIDTH + 30)) - (spreadWidth/2),
-              y: (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET,
-            };
-          } else if (!rootNodeIds.includes(nodeId)) { // Orphaned node or new root not yet in rootNodeIds
-            newNodes[nodeId] = {
-              ...node,
-              x: currentRootX,
-              y: INITIAL_ROOT_Y,
-            };
-            currentRootX += ROOT_X_SPACING;
+          if (!rootNodeIds.includes(nodeId)) { // Only apply default if not a root (roots handled above)
+            needsUpdate = true;
+            if (node.parentId && newNodes[node.parentId]) {
+              const parentNode = newNodes[node.parentId];
+              const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
+              const siblingIndex = parentChildIds.indexOf(nodeId);
+              const numSiblings = parentChildIds.length > 0 ? parentChildIds.length : 1;
+              
+              // Basic horizontal stacking for children for now
+              newNodes[nodeId] = {
+                ...node,
+                x: (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingIndex * (NODE_CARD_WIDTH + 30)),
+                y: (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET,
+              };
+            } else { // Orphaned node, place it somewhere
+              newNodes[nodeId] = {
+                ...node,
+                x: currentRootX, // Use a running counter for orphans
+                y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2, // Place them lower
+              };
+              currentRootX += ROOT_X_SPACING;
+            }
           }
         }
       });
 
-
       if(needsUpdate) {
         return { ...m, data: { ...m.data, nodes: newNodes, rootNodeIds } };
       }
-      return { ...m, data: { ...m.data, rootNodeIds } }; // Ensure rootNodeIds is always an array
+      return { ...m, data: { ...m.data, rootNodeIds } };
     });
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING]); // Added dependencies
+  }, []);
 
   useEffect(() => {
     if (!isLoading) {
@@ -139,25 +133,18 @@ export function useMindmaps() {
         if (parentNode) {
             const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
             const siblingCount = parentChildIds.length;
-            const totalChildrenAfterAdd = siblingCount + 1;
-
-            const groupWidth = (totalChildrenAfterAdd -1) * (NODE_CARD_WIDTH + 30);
-            const firstChildXOffset = -groupWidth / 2;
-
-            x = (parentNode.x ?? INITIAL_ROOT_X) + (NODE_CARD_WIDTH / 2) + firstChildXOffset + (siblingCount * (NODE_CARD_WIDTH + 30)) + CHILD_X_OFFSET;
+            // Simple stacking: new child goes to the right of existing children
+            x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
             y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
         }
     } else {
-        let maxRootX = -Infinity;
+        // Place new root nodes to the right of existing root nodes
         if (currentRootNodeIds.length > 0) {
-            currentRootNodeIds.forEach(rootId => {
-                if (mindmap.data.nodes[rootId] && mindmap.data.nodes[rootId].x !== undefined) {
-                    maxRootX = Math.max(maxRootX, mindmap.data.nodes[rootId].x ?? -Infinity);
-                }
-            });
-            x = (maxRootX === -Infinity) ? INITIAL_ROOT_X : maxRootX + ROOT_X_SPACING;
+            const lastRootNodeId = currentRootNodeIds[currentRootNodeIds.length -1];
+            const lastRootNode = mindmap.data.nodes[lastRootNodeId];
+            x = (lastRootNode?.x ?? INITIAL_ROOT_X - ROOT_X_SPACING) + ROOT_X_SPACING;
         } else {
-            x = INITIAL_ROOT_X;
+            x = INITIAL_ROOT_X; // First root node
         }
         y = INITIAL_ROOT_Y;
     }
@@ -189,7 +176,7 @@ export function useMindmaps() {
 
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_Y_OFFSET, CHILD_X_OFFSET]);
+  }, [getMindmapById, updateMindmap]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
