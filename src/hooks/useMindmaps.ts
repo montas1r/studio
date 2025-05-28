@@ -2,21 +2,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput, PaletteColorKey } from '@/types/mindmap';
+import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput } from '@/types/mindmap';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
-
-// Define layout constants inside the hook
-const INITIAL_ROOT_X = 0;
-const INITIAL_ROOT_Y = 0;
-const NODE_CARD_WIDTH = 300;
-const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
-const CHILD_X_OFFSET = 0; // Relative to parent
-const CHILD_Y_OFFSET = 180; // Approx (Node Header + Description + Spacing)
 
 export function useMindmaps() {
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Define layout constants inside the hook for encapsulation
+  const NODE_CARD_WIDTH = 300; // Must be defined first if others use it
+  const INITIAL_ROOT_X = 0;
+  const INITIAL_ROOT_Y = 0;
+  const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
+  const CHILD_X_OFFSET = 0; // Relative to parent
+  const CHILD_Y_OFFSET = 180; // Approx (Node Header + Description + Spacing)
+
 
   useEffect(() => {
     const loadedMindmaps = getMindmapsFromStorage();
@@ -66,17 +67,6 @@ export function useMindmaps() {
             localCurrentRootX += ROOT_X_SPACING;
           }
         }
-
-        // Logic for migrating/validating customBackgroundColor with PaletteColorKey
-        const validPaletteKeys: Array<PaletteColorKey | undefined | ''> = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', undefined, ''];
-        if (node.customBackgroundColor !== undefined && !validPaletteKeys.includes(node.customBackgroundColor)) {
-             newNodes[nodeId] = { ...node, customBackgroundColor: undefined }; // Reset if invalid
-             needsUpdate = true;
-        }
-        if (node.customBackgroundColor === '') { // Ensure empty string means undefined
-            newNodes[nodeId] = { ...node, customBackgroundColor: undefined };
-            needsUpdate = true;
-        }
       });
       
       currentRootXGlobal = Math.max(currentRootXGlobal, localCurrentRootX);
@@ -90,7 +80,7 @@ export function useMindmaps() {
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, []);
+  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, ROOT_X_SPACING, NODE_CARD_WIDTH]); // Added dependencies for layout constants
 
   useEffect(() => {
     if (!isLoading) {
@@ -145,14 +135,13 @@ export function useMindmaps() {
         if (parentNode) {
             const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
             const siblingCount = parentChildIds.length;
-            x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30)); // Basic horizontal stacking for siblings
+            x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
             y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
         }
     } else {
-        // For root nodes, find the rightmost current root node to place the new one
         let maxRootX = -Infinity;
         if (currentRootNodeIds.length === 0) {
-            maxRootX = INITIAL_ROOT_X - ROOT_X_SPACING; // So first root is at INITIAL_ROOT_X
+            maxRootX = INITIAL_ROOT_X - ROOT_X_SPACING; 
         } else {
             currentRootNodeIds.forEach(rootId => {
                 const rNode = mindmap.data.nodes[rootId];
@@ -170,7 +159,6 @@ export function useMindmaps() {
       title: nodeDetails.title,
       description: nodeDetails.description,
       emoji: nodeDetails.emoji,
-      customBackgroundColor: nodeDetails.customBackgroundColor === '' ? undefined : nodeDetails.customBackgroundColor,
       parentId,
       childIds: [],
       x,
@@ -191,7 +179,7 @@ export function useMindmaps() {
 
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap]);
+  }, [getMindmapById, updateMindmap, CHILD_X_OFFSET, CHILD_Y_OFFSET, ROOT_X_SPACING, NODE_CARD_WIDTH]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -203,7 +191,6 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      customBackgroundColor: updates.customBackgroundColor === '' ? undefined : (updates.customBackgroundColor as PaletteColorKey | undefined),
     };
 
     const updatedNodes = {

@@ -14,17 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { EditNodeInput, NodeData, PaletteColorKey } from '@/types/mindmap';
+import type { EditNodeInput, NodeData } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2, Palette } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react'; // Removed Palette
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface EditNodeDialogProps {
   isOpen: boolean;
@@ -33,22 +26,10 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
-const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; 
-
-const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | typeof NO_CUSTOM_COLOR_VALUE; colorSample?: string }> = [
-  { label: 'Default Theme', value: NO_CUSTOM_COLOR_VALUE },
-  { label: 'Indigo', value: 'chart-1', colorSample: 'hsl(var(--chart-1))' },
-  { label: 'Pink/Rose', value: 'chart-2', colorSample: 'hsl(var(--chart-2))' },
-  { label: 'Teal/Green', value: 'chart-3', colorSample: 'hsl(var(--chart-3))' },
-  { label: 'Amber/Orange', value: 'chart-4', colorSample: 'hsl(var(--chart-4))' },
-  { label: 'Sky Blue', value: 'chart-5', colorSample: 'hsl(var(--chart-5))' },
-];
-
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | ''>('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -57,13 +38,11 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      setCustomBackgroundColor(node.customBackgroundColor || '');
     } else {
       // Reset form for new node creation (if applicable by temporary node)
       setTitle('');
       setDescription('');
       setEmoji('');
-      setCustomBackgroundColor('');
     }
   }, [node]);
 
@@ -73,7 +52,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        customBackgroundColor: customBackgroundColor || undefined,
       });
       onOpenChange(false);
     }
@@ -168,43 +146,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="node-bg-color" className="text-right">
-              <div className="flex items-center justify-end gap-1">
-                <Palette className="h-4 w-4 text-muted-foreground" /> BG Color
-              </div>
-            </Label>
-            <Select
-              value={customBackgroundColor || NO_CUSTOM_COLOR_VALUE}
-              onValueChange={(value) => {
-                if (value === NO_CUSTOM_COLOR_VALUE) {
-                  setCustomBackgroundColor('');
-                } else {
-                  setCustomBackgroundColor(value as PaletteColorKey);
-                }
-              }}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a color" />
-              </SelectTrigger>
-              <SelectContent>
-                {PALETTE_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <div className="flex items-center gap-2">
-                      {opt.colorSample && (
-                        <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
-                      )}
-                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( 
-                        <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
-                      )}
-                      {opt.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Removed custom background color select */}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

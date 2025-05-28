@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-// No next/image for this reverted version
 
 interface NodeCardProps {
   node: NodeData;
@@ -33,45 +32,25 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   let currentHeaderClasses = headerBaseClasses;
   let descriptionBgClass = "bg-card"; // Default background for description
   let headerTextColorClass = "";
+  let buttonTextColorClass = "";
+  let buttonHoverBgClass = "";
 
-
-  // Determine base theme styling first
-  if (node.customBackgroundColor) {
-    const customColorVar = `var(--${node.customBackgroundColor})`; // e.g., var(--chart-1)
-    cardStyle.backgroundColor = `hsl(${customColorVar})`;
-    // Ensure border also uses the custom color if set
-    currentCardClasses = cn(cardBaseClasses, `border-[hsl(${customColorVar})]`);
-    
-    // For header, use a slightly darker/more opaque version or a contrasting color
-    // Using HSLA for slight opacity adjustment on the custom color
-    currentHeaderClasses = cn(headerBaseClasses, `bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.8)]`);
-    headerTextColorClass = "text-[hsl(var(--card-foreground))]"; // Use card-foreground for text on custom bg
-    
-    // For description, use a lighter/less opaque version of the custom color
-    descriptionBgClass = `bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.2)]`;
-
-  } else if (isRoot) {
+  if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/10 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/20 text-primary-foreground");
     headerTextColorClass = "text-primary-foreground";
     descriptionBgClass = "bg-primary/10";
+    buttonTextColorClass = "text-primary-foreground";
+    buttonHoverBgClass = "hover:bg-primary/30";
   } else {
     currentCardClasses = cn(currentCardClasses, "bg-accent/10 border-accent");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/20 text-accent-foreground");
     headerTextColorClass = "text-accent-foreground";
     descriptionBgClass = "bg-accent/10";
+    buttonTextColorClass = "text-accent-foreground";
+    buttonHoverBgClass = "hover:bg-accent/30";
   }
   
-  // Determine button text color and hover based on background
-  const buttonTextColorClass = node.customBackgroundColor 
-    ? "text-[hsl(var(--card-foreground))]" 
-    : headerTextColorClass;
-  
-  const buttonHoverBgClass = node.customBackgroundColor 
-    ? "hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)]" // Light hover for custom bg
-    : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30");
-
-
   return (
     <div
       id={`node-${node.id}`}
@@ -100,18 +79,16 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
 
-      {/* No image rendering in this reverted version */}
-
       {node.description && (
         <div className={cn(
             "p-3 text-sm rounded-b-xl flex-grow",
             descriptionBgClass, 
-            node.customBackgroundColor ? 'text-[hsl(var(--card-foreground))] opacity-90' : 'text-card-foreground/80'
+            'text-card-foreground/80' // Simplified text color for description
         )}>
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         </div>
       )}
-      {(!node.description) && <div className="min-h-[20px]"></div>} {/* Ensure some min height if no description */}
+      {(!node.description) && <div className="min-h-[20px]"></div>}
     </div>
   );
 }
