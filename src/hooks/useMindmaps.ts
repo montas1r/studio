@@ -11,10 +11,10 @@ const NODE_CARD_WIDTH = 300;
 
 export function useMindmaps() {
   // Define layout constants that might depend on NODE_CARD_WIDTH inside the hook
-  const INITIAL_ROOT_X = 50; // Provide some initial padding from edge
-  const INITIAL_ROOT_Y = 50;
+  const INITIAL_ROOT_X = 0;
+  const INITIAL_ROOT_Y = 0;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
-  const CHILD_X_OFFSET = 0; // Child X relative to parent's center - NODE_CARD_WIDTH / 2 for left align
+  const CHILD_X_OFFSET = 0;
   const CHILD_Y_OFFSET = 180; // Vertical spacing between parent and child
 
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
@@ -46,7 +46,7 @@ export function useMindmaps() {
             currentRootX += ROOT_X_SPACING;
         }
       });
-      
+
       // Ensure all nodes have x, y. This is a very basic placement if missing.
       Object.keys(newNodes).forEach(nodeId => {
         const node = newNodes[nodeId];
@@ -81,10 +81,10 @@ export function useMindmaps() {
       }
       return { ...m, data: { ...m.data, rootNodeIds } }; // Ensure rootNodeIds is always an array
     });
-    
+
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING]);
+  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING]); // Added dependencies
 
   useEffect(() => {
     if (!isLoading) {
@@ -138,18 +138,16 @@ export function useMindmaps() {
         const parentNode = mindmap.data.nodes[parentId];
         if (parentNode) {
             const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
-            const siblingCount = parentChildIds.length; // Number of existing siblings
+            const siblingCount = parentChildIds.length;
             const totalChildrenAfterAdd = siblingCount + 1;
-            
-            // Calculate spread based on the center of the parent
-            const groupWidth = (totalChildrenAfterAdd -1) * (NODE_CARD_WIDTH + 30); // Width of the group of children
-            const firstChildXOffset = -groupWidth / 2; // Offset for the first child to center the group
 
-            x = (parentNode.x ?? INITIAL_ROOT_X) + (NODE_CARD_WIDTH / 2) + firstChildXOffset + (siblingCount * (NODE_CARD_WIDTH + 30));
+            const groupWidth = (totalChildrenAfterAdd -1) * (NODE_CARD_WIDTH + 30);
+            const firstChildXOffset = -groupWidth / 2;
+
+            x = (parentNode.x ?? INITIAL_ROOT_X) + (NODE_CARD_WIDTH / 2) + firstChildXOffset + (siblingCount * (NODE_CARD_WIDTH + 30)) + CHILD_X_OFFSET;
             y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
         }
     } else {
-        // New root node
         let maxRootX = -Infinity;
         if (currentRootNodeIds.length > 0) {
             currentRootNodeIds.forEach(rootId => {
@@ -159,7 +157,7 @@ export function useMindmaps() {
             });
             x = (maxRootX === -Infinity) ? INITIAL_ROOT_X : maxRootX + ROOT_X_SPACING;
         } else {
-            x = INITIAL_ROOT_X; // First root node
+            x = INITIAL_ROOT_X;
         }
         y = INITIAL_ROOT_Y;
     }
