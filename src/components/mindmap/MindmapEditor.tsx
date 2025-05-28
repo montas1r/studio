@@ -2,14 +2,14 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
+import type { Mindmap, NodeData, EditNodeInput, PaletteColorKey } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
-import { PlusCircle, Download, ArrowLeft, AlertTriangle, Layers, Home } from 'lucide-react';
+import { PlusCircle, Download, ArrowLeft, Home, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -26,16 +26,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+// Constants for node and canvas dimensions, ensure these are consistent if used elsewhere
+const NODE_CARD_WIDTH = 300; // Logical width, used for SVG calculations
+const NODE_HEADER_HEIGHT = 50; // Approximate, used for SVG calculations
+const CANVAS_CONTENT_WIDTH = '1200px'; // Default canvas logical size
+const CANVAS_CONTENT_HEIGHT = '1200px';
+
 
 interface MindmapEditorProps {
   mindmapId: string;
 }
-
-const NODE_CARD_WIDTH = 300;
-const NODE_HEADER_HEIGHT = 50; 
-const CANVAS_CONTENT_WIDTH = '1200px'; // Default canvas logical size
-const CANVAS_CONTENT_HEIGHT = '1200px';
-
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const { getMindmapById, addNode, updateNode, deleteNode: deleteNodeFromHook, updateNodePosition } = useMindmaps();
@@ -54,6 +54,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const canvasContentRef = useRef<HTMLDivElement>(null); 
 
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  // dragOffset state is kept for potential future use or if dataTransfer proves problematic in some edge cases
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
 
@@ -79,9 +80,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       
       setTimeout(() => {
         if (canvasRef.current && newNode.x !== undefined && newNode.y !== undefined) {
-          // Simple scroll into view for the new node in a basic canvas
            const nodeElement = document.getElementById(`node-${newNode.id}`);
-           nodeElement?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+           if (nodeElement) {
+             nodeElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+           }
         }
       }, 100);
     }
@@ -100,7 +102,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       parentId: parentId,
       childIds: [],
       x: (parentNode.x ?? 0), 
-      y: (parentNode.y ?? 0) + NODE_HEADER_HEIGHT + 100, // Approximate position
+      y: (parentNode.y ?? 0) + NODE_HEADER_HEIGHT + 100,
+      // No customBackgroundColor or imageUrl for temp node
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
@@ -113,14 +116,16 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }, []);
 
   const handleSaveNode = useCallback((nodeId: string, data: EditNodeInput) => {
-    if (!mindmap || !editingNode) return;
+    if (!mindmap || !editingNode) return; // editingNode must exist here
     if (editingNode.id.startsWith('temp-')) { 
       const permanentNode = addNode(mindmap.id, editingNode.parentId, data);
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
          setTimeout(() => {
             const nodeElement = document.getElementById(`node-${permanentNode.id}`);
-            nodeElement?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            if (nodeElement) {
+              nodeElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
         }, 100);
       }
     } else { 
@@ -150,20 +155,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
  const handleNodeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
     const nodeElement = event.currentTarget;
-    if (!nodeElement || !canvasContentRef.current) return;
+    if (!nodeElement || !canvasRef.current) return;
 
     const nodeRect = nodeElement.getBoundingClientRect();
-    const canvasRect = canvasContentRef.current.getBoundingClientRect();
-
-    // Offset from mouse to node's top-left corner
-    setDragOffset({
+    const currentDragOffset = {
       x: event.clientX - nodeRect.left,
       y: event.clientY - nodeRect.top,
-    });
+    };
+    setDragOffset(currentDragOffset); // Still set state for potential other uses or direct reading if preferred
+    // Store offset in dataTransfer as a primary means for drop calculation
+    event.dataTransfer.setData('application/json', JSON.stringify(currentDragOffset));
 
     setDraggedNodeId(nodeId);
     event.dataTransfer.effectAllowed = "move";
-    // You can set some data if needed, though for internal drags it's often managed by state
+    // It's good practice to set some data, even if just for external drop targets or Firefox.
     event.dataTransfer.setData("text/plain", nodeId); 
   }, []);
 
@@ -177,19 +182,30 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleDropOnCanvas = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (!draggedNodeId || !mindmap || !canvasContentRef.current || !canvasRef.current) return;
+    if (!draggedNodeId || !mindmap || !canvasRef.current) return;
 
-    const canvasContentRect = canvasContentRef.current.getBoundingClientRect();
-    
-    // Calculate position relative to the scrolled canvasContentRef
-    // Mouse position relative to viewport - canvasContentRef's top-left relative to viewport + scroll offset of canvasRef
-    let newX = event.clientX - canvasContentRect.left + canvasRef.current.scrollLeft - dragOffset.x;
-    let newY = event.clientY - canvasContentRect.top + canvasRef.current.scrollTop - dragOffset.y;
-    
-    // Removed clamping to 0,0 to allow nodes to be placed anywhere on the logical canvas
-    // newX = Math.max(0, newX);
-    // newY = Math.max(0, newY);
+    let offsetX = dragOffset.x; // Fallback to state
+    let offsetY = dragOffset.y; // Fallback to state
 
+    try {
+      const data = event.dataTransfer.getData('application/json');
+      if (data) {
+        const parsedOffset = JSON.parse(data);
+        offsetX = parsedOffset.x;
+        offsetY = parsedOffset.y;
+      }
+    } catch (e) {
+      console.error("Could not parse drag offset from dataTransfer, falling back to state:", e);
+      // If parsing fails, offsetX and offsetY will retain values from state (dragOffset.x, dragOffset.y)
+    }
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const scrollLeft = canvasRef.current.scrollLeft;
+    const scrollTop = canvasRef.current.scrollTop;
+    
+    let newX = event.clientX - canvasRect.left + scrollLeft - offsetX;
+    let newY = event.clientY - canvasRect.top + scrollTop - offsetY;
+    
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
   }, [draggedNodeId, mindmap, dragOffset, updateNodePosition]);
@@ -209,7 +225,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   if (!mindmap) {
     return (
       <div className="flex flex-col items-center justify-center h-full flex-grow space-y-4 text-center py-10">
-        <AlertTriangle className="w-16 h-16 text-destructive" />
+        <Palette className="w-16 h-16 text-destructive" />
         <h2 className="text-2xl font-bold">Mindmap Not Found</h2>
         <p className="text-muted-foreground">The mindmap you are looking for does not exist or has been deleted.</p>
         <Button asChild variant="outline" size="sm">
@@ -219,7 +235,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     );
   }
   const allNodes = Object.values(mindmap.data.nodes);
-  const svgKey = allNodes.map(n => `${n.id}-${n.x}-${n.y}-${(n.childIds || []).join(',')}`).join('|');
+  const svgKey = allNodes.map(n => `${n.id}-${n.x}-${n.y}-${(n.childIds || []).join(',')}-${n.customBackgroundColor}`).join('|');
 
 
   return (
@@ -232,9 +248,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                 <TooltipTrigger asChild>
                   <Button asChild variant="ghost" size="icon" className="h-8 w-8">
                     <Link href="/">
-                      <span className="flex items-center justify-center">
                         <Home className="h-4 w-4" />
-                      </span>
                     </Link>
                   </Button>
                 </TooltipTrigger>
@@ -281,7 +295,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           </div>
         </div>
 
-        {/* Main Canvas Area - Simple Scrollable Div */}
         <div
           ref={canvasRef} 
           className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-180px)]"
@@ -304,7 +317,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     onEdit={handleEditNode}
                     onDelete={requestDeleteNode}
                     onAddChild={handleAddChildNode}
-                    onDragStart={handleNodeDragStart}
+                    onDragStart={(e, id) => handleNodeDragStart(e, id)}
                 />
                 ))}
 
@@ -322,28 +335,32 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     const parentNode = mindmap.data.nodes[node.parentId];
                     if (!parentNode) return null;
 
+                    // Define anchor points
                     const startX = (parentNode.x ?? 0) + NODE_CARD_WIDTH / 2;
                     let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT; 
-                   
+                    // Adjust startY if parent has description, to emerge from bottom of card
+                    // This requires knowing the rendered height of the parent card, which is complex.
+                    // For simplicity, we'll use a fixed offset or emerge from header bottom.
+                    // If parentNode.description, startY = (parentNode.y ?? 0) + approximated_card_height;
+
                     const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
                     const endY = (node.y ?? 0); 
 
+                    // Control points for the Bezier curve
+                    // c1y and c2y create the "S" shape vertically
                     const c1x = startX;
-                    const c1y = startY + Math.max(20, Math.abs(endY - startY) / 2);
+                    const c1y = startY + Math.max(20, Math.abs(endY - startY) / 2.5); // Adjust curviness
                     const c2x = endX;
-                    const c2y = endY - Math.max(20, Math.abs(endY - startY) / 2);
+                    const c2y = endY - Math.max(20, Math.abs(endY - startY) / 2.5); // Adjust curviness
                     
                     const pathData = `M ${startX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endX} ${endY}`;
                     
                     let strokeColor = "hsl(var(--accent))"; 
-                    if (!parentNode.parentId) { 
+                    if (parentNode.customBackgroundColor) {
+                       strokeColor = `hsl(var(--${parentNode.customBackgroundColor}-raw, var(--${parentNode.customBackgroundColor})))`;
+                    } else if (!parentNode.parentId) { // Parent is a root node
                         strokeColor = "hsl(var(--primary))";
                     }
-                    // V1.0.0: No custom palette wire coloring
-                    // if (parentNode.customBackgroundColor) {
-                    //    strokeColor = `hsl(var(--${parentNode.customBackgroundColor}))`;
-                    // }
-
 
                     return (
                     <path
@@ -359,13 +376,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
                 {allNodes.length === 0 && (
                   <div
-                    className="absolute flex items-center justify-center pointer-events-none text-center"
-                    style={{
-                      top: `calc(50% - 50px)`, 
-                      left: `calc(50% - ${parseInt(CANVAS_CONTENT_WIDTH)/4}px)`, 
-                      transform: `translate(-50%, -50%)`, 
-                      width: 'auto',
-                    }}
+                    className="absolute flex items-center justify-center pointer-events-none text-center inset-0"
                   >
                     <div className="text-muted-foreground text-lg bg-background/80 p-6 rounded-md shadow-lg">
                         This mindmap is empty. Add a root idea to get started!
