@@ -5,95 +5,82 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%; /* #F9FAFB light gray */
-    --foreground: 222.2 47.4% 11.2%; /* Default dark text */
-
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 222.2 47.4% 11.2%;
-
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 222.2 47.4% 11.2%;
-
-    --primary: 243 75% 59%; /* Indigo #4F46E5 */
-    --primary-foreground: 210 40% 98%; /* Light text on primary */
-
-    --secondary: 210 40% 96.1%; /* Slightly darker gray than background */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text on secondary */
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215 17.9% 65.1%; /* Lighter gray text */
-
-    --accent: 258 90% 66%; /* Violet #8B5CF6 */
-    --accent-foreground: 210 40% 98%; /* Light text on accent */
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 210 20% 89.8%; /* Lighter border */
-    --input: 210 20% 89.8%; /* Lighter input border */
-    --ring: 243 75% 59%; /* Primary color for ring */
-
-    --radius: 0.75rem; /* Softer rounded corners */
-
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222.2 47.4% 11.2%;
-    --sidebar-primary: 243 75% 59%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 210 40% 96.1%;
-    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-    --sidebar-border: 210 20% 89.8%;
-    --sidebar-ring: 243 75% 59%;
-  }
-
-  .dark {
-    --background: 222.2 47.4% 11.2%; /* Dark */
-    --foreground: 210 40% 98%; /* Light text */
-
-    --card: 222.2 47.4% 14.2%; /* Slightly lighter dark for cards */
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 47.4% 11.2%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 243 75% 59%; /* Indigo */
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 215 27.9% 16.9%; /* Darker gray */
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 215 20% 65.1%;
-
-    --accent: 258 90% 66%; /* Violet */
-    --accent-foreground: 210 40% 98%;
-
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --radius: 0.75rem;
 
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
-    --ring: 243 75% 59%;
-    
+    /* Chart colors */
+    --chart-1: 220 70% 50%; /* Coral-like Blue */
+    --chart-2: 160 60% 45%; /* Teal-like Green */
+    --chart-3: 260 70% 65%; /* Indigo-like Purple */
+    --chart-4: 40 80% 55%;  /* Amber-like Orange */
+    --chart-5: 320 70% 60%; /* Pink-like Magenta */
+
+    /* Sidebar specific colors */
+    --sidebar-background: 0 0% 7%; /* Slightly lighter than main background */
+    --sidebar-foreground: 0 0% 80%; /* Slightly dimmer than main foreground */
+    --sidebar-primary: 0 0% 98%; /* Same as main primary */
+    --sidebar-primary-foreground: 0 0% 9%; /* Same as main primary-foreground */
+    --sidebar-accent: 0 0% 20%; /* Slightly lighter accent for sidebar */
+    --sidebar-accent-foreground: 0 0% 98%; /* Same as main accent-foreground */
+    --sidebar-border: 0 0% 20%; /* Matches sidebar accent for subtle borders */
+    --sidebar-ring: 0 0% 83.1%; /* Same as main ring */
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+
+    /* Chart colors - Light theme adjustments can be made here if needed */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-3: 260 70% 65%;
+    --chart-4: 40 80% 55%;
+    --chart-5: 320 70% 60%;
 
-    --sidebar-background: 222.2 47.4% 11.2%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 243 75% 59%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 215 27.9% 16.9%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 27.9% 16.9%;
-    --sidebar-ring: 243 75% 59%;
+     /* Sidebar specific colors - Light theme */
+    --sidebar-background: 0 0% 97%; /* Light gray for sidebar */
+    --sidebar-foreground: 0 0% 20%; /* Darker text for readability */
+    --sidebar-primary: 0 0% 9%; /* Same as main primary */
+    --sidebar-primary-foreground: 0 0% 98%; /* Same as main primary-foreground */
+    --sidebar-accent: 0 0% 90%; /* Lighter accent for sidebar */
+    --sidebar-accent-foreground: 0 0% 9%; /* Same as main accent-foreground */
+    --sidebar-border: 0 0% 85%; /* Slightly darker border for sidebar */
+    --sidebar-ring: 0 0% 3.9%; /* Same as main ring */
   }
 }
 
@@ -103,6 +90,39 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1; /* Enhances readability */
+  }
+  /* Custom scrollbar styles */
+  /* For Webkit browsers (Chrome, Safari) */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-secondary/50;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted hover:bg-muted/80;
+    border-radius: 10px;
+    border: 3px solid transparent; /* Creates padding around thumb */
+    background-clip: content-box;
+  }
+
+  /* For Firefox */
+  /* Note: Firefox scrollbar styling is less customizable than Webkit */
+  /* These are more basic and might not perfectly match the Webkit style */
+  * {
+    scrollbar-width: thin; /* "auto" or "thin" */
+    scrollbar-color: hsl(var(--muted)) hsl(var(--secondary) / 0.5); /* thumb and track color */
   }
 }
+
+/* Additional global styles specific to your application can go here */
+/* For example, ensuring consistent focus rings that match your theme */
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+    
