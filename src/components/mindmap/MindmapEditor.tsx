@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
@@ -24,15 +24,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-
-interface MindmapEditorProps {
-  mindmapId: string;
-}
 
 const NODE_CARD_WIDTH = 300;
 const NODE_HEADER_HEIGHT = 50; 
-const CANVAS_CONTENT_WIDTH = '1200px'; 
+const CANVAS_CONTENT_WIDTH = '1200px'; // Default canvas size
 const CANVAS_CONTENT_HEIGHT = '1200px';
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
@@ -48,8 +43,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   
   const { toast } = useToast();
 
-  const canvasRef = useRef<HTMLDivElement>(null); 
-  const canvasContentRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null); // For the scrollable container
+  const canvasContentRef = useRef<HTMLDivElement>(null); // For the content div holding nodes
 
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -74,8 +69,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       setNewRootNodeDescription('');
       toast({ title: "Root Node Added", description: `"${newNode.title}" added to the mindmap.` });
       
+      // Scroll to the new node
       setTimeout(() => {
-        if (canvasRef.current) {
+        if (canvasRef.current && newNode.x !== undefined && newNode.y !== undefined) {
           canvasRef.current.scrollTo({
             left: newNode.x - (canvasRef.current.offsetWidth / 2) + (NODE_CARD_WIDTH / 2),
             top: newNode.y - (canvasRef.current.offsetHeight / 2) + (NODE_HEADER_HEIGHT / 2),
@@ -99,8 +95,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       parentId: parentId,
       childIds: [],
       x: (parentNode.x ?? 0), 
-      y: (parentNode.y ?? 0) + NODE_HEADER_HEIGHT + 100,
-      customBackgroundColor: undefined,
+      y: (parentNode.y ?? 0) + NODE_HEADER_HEIGHT + 100, // Initial position below parent
+      // customBackgroundColor: undefined, // Reverted to simpler state
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
@@ -118,8 +114,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const permanentNode = addNode(mindmap.id, editingNode.parentId, data);
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
-        setTimeout(() => {
-             if (canvasRef.current) {
+         setTimeout(() => {
+             if (canvasRef.current && permanentNode.x !== undefined && permanentNode.y !== undefined) {
                 canvasRef.current.scrollTo({
                     left: permanentNode.x - (canvasRef.current.offsetWidth / 2) + (NODE_CARD_WIDTH / 2),
                     top: permanentNode.y - (canvasRef.current.offsetHeight / 2) + (NODE_HEADER_HEIGHT / 2),
@@ -155,11 +151,12 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleNodeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
     const nodeElement = document.getElementById(`node-${nodeId}`);
-    if (!nodeElement || !canvasRef.current) return;
+    if (!nodeElement || !canvasContentRef.current) return;
     
-    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const contentRect = canvasContentRef.current.getBoundingClientRect();
     const nodeRect = nodeElement.getBoundingClientRect();
 
+    // Calculate offset relative to the canvasContent, not the viewport
     setDragOffset({
       x: event.clientX - nodeRect.left,
       y: event.clientY - nodeRect.top,
@@ -172,7 +169,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
 
   const handleDragOverCanvas = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
+    event.preventDefault(); // Necessary to allow drop
     if (draggedNodeId) {
       event.dataTransfer.dropEffect = "move";
     }
@@ -180,16 +177,18 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleDropOnCanvas = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (!draggedNodeId || !mindmap || !canvasRef.current ) return;
+    if (!draggedNodeId || !mindmap || !canvasRef.current || !canvasContentRef.current) return;
 
-    const canvasRect = canvasRef.current.getBoundingClientRect();
-    
-    let newX = event.clientX - canvasRect.left + canvasRef.current.scrollLeft - dragOffset.x;
-    let newY = event.clientY - canvasRect.top + canvasRef.current.scrollTop - dragOffset.y;
+    const canvasContainerRect = canvasRef.current.getBoundingClientRect(); // Outer scrollable container
+
+    // Calculate drop position relative to the scrollable canvas container's viewport
+    let newX = event.clientX - canvasContainerRect.left + canvasRef.current.scrollLeft - dragOffset.x;
+    let newY = event.clientY - canvasContainerRect.top + canvasRef.current.scrollTop - dragOffset.y;
     
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
   }, [draggedNodeId, mindmap, dragOffset, updateNodePosition]);
+
 
   const handleExportJson = useCallback(() => {
     if (!mindmap) return;
@@ -215,6 +214,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     );
   }
   const allNodes = Object.values(mindmap.data.nodes);
+  const svgKey = allNodes.map(n => `${n.id}-${n.x}-${n.y}-${n.customBackgroundColor || ''}-${(n.childIds || []).join(',')}`).join('|');
+
 
   return (
     <TooltipProvider>
@@ -274,17 +275,18 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
         {/* Main Canvas Area - Simple Scrollable Div */}
         <div
-          ref={canvasRef}
-          className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-200px)] sm:min-h-[calc(100vh-180px)]"
-          onDragOver={handleDragOverCanvas}
-          onDrop={handleDropOnCanvas}
+          ref={canvasRef} // Ref for the scrollable container
+          className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-180px)]"
+          onDragOver={handleDragOverCanvas} // Needs to be on the scrollable container for drop to work
+          onDrop={handleDropOnCanvas} // Needs to be on the scrollable container
         >
             <div
-                ref={canvasContentRef} 
+                ref={canvasContentRef} // Ref for the content div that holds nodes and SVG
                 className="relative" 
                 style={{
                     width: CANVAS_CONTENT_WIDTH,
                     height: CANVAS_CONTENT_HEIGHT,
+                    // No border here, it was removed in this version
                 }}
             >
                 {allNodes.map((node) => (
@@ -304,9 +306,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     style={{
                         width: CANVAS_CONTENT_WIDTH, 
                         height: CANVAS_CONTENT_HEIGHT,
-                        overflow: 'visible', 
+                        overflow: 'visible', // Important for lines to nodes at edges/negative coords
                     }}
-                    key={`svg-lines-key-${allNodes.map(n => `${n.id}-${n.x}-${n.y}-${n.customBackgroundColor || ''}`).join('-')}`}
+                    key={svgKey} // Re-render SVG if node positions or connections change
                 >
                 {allNodes.map(node => {
                     if (!node.parentId) return null;
@@ -319,6 +321,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
                     const endY = (node.y ?? 0); 
 
+                    // Control points for Bezier curve
                     const c1x = startX;
                     const c1y = startY + Math.max(20, Math.abs(endY - startY) / 2);
                     const c2x = endX;
@@ -329,7 +332,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     let strokeColor = "hsl(var(--accent))"; 
                     if (parentNode.customBackgroundColor) {
                         strokeColor = `hsl(var(--${parentNode.customBackgroundColor}))`;
-                    } else if (!parentNode.parentId) { 
+                    } else if (!parentNode.parentId) { // Parent is a root node
                         strokeColor = "hsl(var(--primary))";
                     }
 
@@ -350,7 +353,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     className="absolute flex items-center justify-center pointer-events-none text-center"
                     style={{
                       top: `calc(50% - 50px)`, 
-                      left: `50%`,
+                      left: `calc(50% - ${parseInt(CANVAS_CONTENT_WIDTH)/4}px)`, // Adjust for wide canvas
                       transform: `translate(-50%, -50%)`, 
                       width: 'auto',
                     }}

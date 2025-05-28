@@ -59,6 +59,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setEmoji(node.emoji || '');
       setCustomBackgroundColor(node.customBackgroundColor || '');
     } else {
+      // Reset form for new node creation (if applicable by temporary node)
       setTitle('');
       setDescription('');
       setEmoji('');
