@@ -2,13 +2,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput } from '@/types/mindmap';
+import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput, PaletteColorKey } from '@/types/mindmap';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
+const NODE_CARD_WIDTH = 300; // This needs to be defined first if others use it
+
 export function useMindmaps() {
-  // Layout constants moved inside the hook for clarity and to ensure NODE_CARD_WIDTH is defined first
-  const NODE_CARD_WIDTH = 300; 
+  // Layout constants moved inside the hook for clarity
   const INITIAL_ROOT_X = 0;
   const INITIAL_ROOT_Y = 0;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50; 
@@ -29,17 +30,18 @@ export function useMindmaps() {
       
       let localCurrentRootX = currentGlobalX;
 
-      rootNodeIds.forEach((rootId, index) => {
-        if (newNodes[rootId] && (newNodes[rootId].x === undefined || newNodes[rootId].y === undefined)) {
+      rootNodeIds.forEach((rootId) => {
+        const node = newNodes[rootId];
+        if (node && (node.x === undefined || node.y === undefined)) {
           newNodes[rootId] = {
-            ...newNodes[rootId],
-            x: INITIAL_ROOT_X + index * ROOT_X_SPACING,
+            ...node,
+            x: localCurrentRootX, // Position roots sequentially if new
             y: INITIAL_ROOT_Y
           };
+          localCurrentRootX += ROOT_X_SPACING;
           needsUpdate = true;
-        }
-        if(newNodes[rootId]?.x !== undefined) {
-           localCurrentRootX = Math.max(localCurrentRootX, newNodes[rootId].x + ROOT_X_SPACING);
+        } else if (node?.x !== undefined) {
+           localCurrentRootX = Math.max(localCurrentRootX, node.x + ROOT_X_SPACING);
         }
       });
       
@@ -54,24 +56,23 @@ export function useMindmaps() {
             const siblingIndex = parentChildIds.indexOf(nodeId);
             
             const calculatedX = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + 
-                               (siblingIndex >= 0 ? siblingIndex * (NODE_CARD_WIDTH + 30) : 0); // Basic horizontal spread for siblings
+                               (siblingIndex >= 0 ? siblingIndex * (NODE_CARD_WIDTH + 30) : 0);
             const calculatedY = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
 
             newNodes[nodeId] = { ...node, x: calculatedX, y: calculatedY };
           } else if (!rootNodeIds.includes(nodeId)) { 
-            // Orphaned node, place it like a new root for migration
-            newNodes[nodeId] = { ...node, x: localCurrentRootX, y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2 }; // Place further down
+            newNodes[nodeId] = { ...node, x: localCurrentRootX, y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2 };
             localCurrentRootX += ROOT_X_SPACING;
           }
         }
         
-        // Remove fields not in V1.0.0
         if ((node as any).imageUrl) { 
             delete (node as any).imageUrl;
             needsUpdate = true;
         }
-        if ((node as any).customBackgroundColor) {
-            delete (node as any).customBackgroundColor;
+        // Ensure customBackgroundColor is valid PaletteColorKey or undefined
+        if (node.customBackgroundColor && !(['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'] as PaletteColorKey[]).includes(node.customBackgroundColor)) {
+            node.customBackgroundColor = undefined;
             needsUpdate = true;
         }
       });
@@ -79,15 +80,12 @@ export function useMindmaps() {
       currentGlobalX = Math.max(currentGlobalX, localCurrentRootX);
 
       const updatedData = { ...m.data, nodes: newNodes, rootNodeIds };
-      if (needsUpdate) {
-        return { ...m, data: updatedData, updatedAt: new Date().toISOString() };
-      }
-      return { ...m, data: updatedData, updatedAt: m.updatedAt || new Date().toISOString() }; 
+      return { ...m, data: updatedData, updatedAt: (needsUpdate || !m.updatedAt) ? new Date().toISOString() : m.updatedAt };
     });
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, []); // Dependencies removed to match original simpler logic, relies on constants defined in hook scope
+  }, []);
 
   useEffect(() => {
     if (!isLoading) {
@@ -145,31 +143,23 @@ export function useMindmaps() {
             const siblingCount = parentChildIds.length;
             x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
             y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
-        } else { // Parent ID provided but parent not found, treat as new root for robustness
+        } else { 
             let maxRootX = -Infinity;
-            if (currentRootNodeIds.length === 0) {
-              maxRootX = INITIAL_ROOT_X - ROOT_X_SPACING; 
-            } else {
-              currentRootNodeIds.forEach(rootId => {
-                  const rNode = currentNodes[rootId];
-                  if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
-              });
-            }
-            x = maxRootX + ROOT_X_SPACING;
-            y = INITIAL_ROOT_Y;
-            parentId = null; // Clear parentId as it's invalid
-        }
-    } else { 
-        let maxRootX = -Infinity;
-        if (currentRootNodeIds.length === 0) {
-            maxRootX = INITIAL_ROOT_X - ROOT_X_SPACING; 
-        } else {
             currentRootNodeIds.forEach(rootId => {
                 const rNode = currentNodes[rootId];
                 if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
             });
+            x = currentRootNodeIds.length > 0 ? maxRootX + ROOT_X_SPACING : INITIAL_ROOT_X;
+            y = INITIAL_ROOT_Y;
+            parentId = null; 
         }
-        x = maxRootX + ROOT_X_SPACING;
+    } else { 
+        let maxRootX = -Infinity;
+        currentRootNodeIds.forEach(rootId => {
+            const rNode = currentNodes[rootId];
+            if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
+        });
+        x = currentRootNodeIds.length > 0 ? maxRootX + ROOT_X_SPACING : INITIAL_ROOT_X;
         y = INITIAL_ROOT_Y;
     }
 
@@ -182,7 +172,7 @@ export function useMindmaps() {
       childIds: [],
       x,
       y,
-      // No customBackgroundColor or imageUrl in V1.0.0
+      customBackgroundColor: nodeDetails.customBackgroundColor === '' ? undefined : nodeDetails.customBackgroundColor,
     };
 
     const updatedNodes = { ...currentNodes, [newNodeId]: newNode };
@@ -195,14 +185,14 @@ export function useMindmaps() {
             childIds: [...(Array.isArray(parentNodeFromMap.childIds) ? parentNodeFromMap.childIds : []), newNodeId] 
         };
     } else if (!parentId) {
-      if (!updatedRootNodeIds.includes(newNodeId)) { // Ensure no duplicates if logic error occurs
+      if (!updatedRootNodeIds.includes(newNodeId)) {
         updatedRootNodeIds.push(newNodeId);
       }
     }
 
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, NODE_CARD_WIDTH, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
+  }, [getMindmapById, updateMindmap, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -214,7 +204,7 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      // No customBackgroundColor or imageUrl in V1.0.0
+      customBackgroundColor: updates.customBackgroundColor === '' ? undefined : updates.customBackgroundColor,
     };
 
     const updatedNodes = {

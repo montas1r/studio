@@ -1,11 +1,10 @@
 
-// No PaletteColorKey in V1.0.0
-// export type PaletteColorKey =
-//   | 'chart-1'
-//   | 'chart-2'
-//   | 'chart-3'
-//   | 'chart-4'
-//   | 'chart-5';
+export type PaletteColorKey =
+  | 'chart-1'
+  | 'chart-2'
+  | 'chart-3'
+  | 'chart-4'
+  | 'chart-5';
 
 export interface NodeData {
   id: string;
@@ -16,9 +15,8 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  // No customBackgroundColor in V1.0.0
-  // customBackgroundColor?: PaletteColorKey;
-  // No imageUrl in V1.0.0
+  customBackgroundColor?: PaletteColorKey;
+  // No imageUrl in this version
 }
 
 export interface NodesObject {
@@ -49,7 +47,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  // No customBackgroundColor in V1.0.0
-  // customBackgroundColor?: PaletteColorKey | ''; 
-  // No imageUrl in V1.0.0
+  customBackgroundColor?: PaletteColorKey | ''; 
 }

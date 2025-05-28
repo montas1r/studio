@@ -14,8 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-// No Select for color palette in V1.0.0
-import type { EditNodeInput, NodeData } from '@/types/mindmap';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { EditNodeInput, NodeData, PaletteColorKey } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,15 +23,24 @@ import { useToast } from '@/hooks/use-toast';
 interface EditNodeDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  node: NodeData | null; // Can be a new temporary node or an existing one
+  node: NodeData | null; 
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
+
+const PALETTE_OPTIONS: { label: string; value: PaletteColorKey | 'no-custom-color' }[] = [
+  { label: 'Default Theme', value: 'no-custom-color' },
+  { label: 'Indigo (Primary)', value: 'chart-1' },
+  { label: 'Rose', value: 'chart-2' },
+  { label: 'Teal', value: 'chart-3' },
+  { label: 'Amber', value: 'chart-4' },
+  { label: 'Sky Blue', value: 'chart-5' },
+];
 
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  // No customBackgroundColor state in V1.0.0
+  const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | 'no-custom-color'>('no-custom-color');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -40,24 +49,24 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      // No customBackgroundColor handling in V1.0.0
+      setCustomBackgroundColor(node.customBackgroundColor || 'no-custom-color');
     } else {
-      // Reset for a completely new node if dialog is opened without a node
       setTitle('');
       setDescription('');
       setEmoji('');
+      setCustomBackgroundColor('no-custom-color');
     }
   }, [node]);
 
   const handleSubmit = () => {
     if (node && title.trim()) {
-      onSave(node.id, { // Pass node.id (could be temp-id or existing id)
+      onSave(node.id, { 
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        // No customBackgroundColor in V1.0.0
+        customBackgroundColor: customBackgroundColor === 'no-custom-color' ? '' : customBackgroundColor,
       });
-      onOpenChange(false); // Close dialog after save
+      onOpenChange(false); 
     }
   };
 
@@ -97,7 +106,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          {/* Check if it's a temporary ID to determine if creating or editing */}
           <DialogTitle>{node.id.startsWith('temp-') ? 'Create New Node' : 'Edit Node'}</DialogTitle>
           <DialogDescription>
             Update the details for this node. You can use AI to summarize the description.
@@ -151,7 +159,34 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-           {/* No BG Color Select in V1.0.0 */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="node-bg-color" className="text-right">
+              BG Color
+            </Label>
+            <Select 
+              value={customBackgroundColor} 
+              onValueChange={(value) => setCustomBackgroundColor(value as PaletteColorKey | 'no-custom-color')}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a color" />
+              </SelectTrigger>
+              <SelectContent>
+                {PALETTE_OPTIONS.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center gap-2">
+                      {option.value !== 'no-custom-color' && (
+                        <span 
+                          className="w-3 h-3 rounded-full inline-block" 
+                          style={{ backgroundColor: `hsl(var(--${option.value}))` }}
+                        />
+                      )}
+                      {option.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

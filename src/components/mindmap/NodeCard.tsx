@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image'; // Keep for V1.0.0 in case, but no imageUrl field for now
+// No Image import in this version
 
 interface NodeCardProps {
   node: NodeData;
@@ -15,11 +15,10 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
-  className?: string; // For node-card-draggable
+  className?: string; 
 }
 
-// Approximate height for placeholder if description is empty but div exists
-const APPROX_MIN_DESC_BOX_HEIGHT = 10; // px
+const APPROX_MIN_DESC_BOX_HEIGHT = 10; 
 
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
   const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab transition-all duration-150 ease-out";
@@ -37,12 +36,23 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  let descriptionBgClass = ""; // For description box
-  let descriptionTextColorClass = "text-foreground/80"; // Default
+  let descriptionBgClass = ""; 
+  let descriptionTextColorClass = "text-foreground/80";
 
-  // V1.0.0: No customBackgroundColor or PaletteColorKey
-  // Styling based purely on isRoot
-  if (isRoot) {
+  const nodeColorVar = node.customBackgroundColor ? `--${node.customBackgroundColor}` : (isRoot ? '--primary' : '--accent');
+  const nodeColorRawVar = node.customBackgroundColor ? `--${node.customBackgroundColor}-raw` : (isRoot ? '--primary' : '--accent'); // Assume raw vars exist for primary/accent too or use a fallback
+  const nodeFgColorVar = node.customBackgroundColor ? `--${node.customBackgroundColor}-foreground` : (isRoot ? '--primary-foreground' : '--accent-foreground');
+
+
+  if (node.customBackgroundColor) {
+    cardStyle.backgroundColor = `hsl(var(${nodeColorVar}))`;
+    currentCardClasses = cn(currentCardClasses, `border-[hsl(var(${nodeColorVar}))]`);
+    headerTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]`;
+    buttonTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]`;
+    buttonHoverBgClass = `hover:bg-[hsla(var(${nodeColorRawVar},var(${nodeColorVar})),0.8)]`; // Use raw for opacity
+    descriptionBgClass = `bg-[hsla(var(${nodeColorRawVar},var(${nodeColorVar})),0.1)]`; // Lighter, translucent version
+    descriptionTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]/90`;
+  } else if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/20 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/30");
     headerTextColorClass = "text-primary-foreground";
@@ -89,11 +99,8 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
             size="icon" 
             onClick={() => onDelete(node.id)} 
             aria-label="Delete node" 
-            className={cn("h-7 w-7", 
-              isRoot ? "text-primary-foreground hover:bg-destructive hover:text-destructive-foreground" : "text-accent-foreground hover:bg-destructive hover:text-destructive-foreground",
-              // Fallback if custom color logic was here:
-              // node.customBackgroundColor ? buttonTextColorClass : "text-destructive", 
-              // node.customBackgroundColor ? buttonHoverBgClass : "hover:text-destructive-foreground hover:bg-destructive/80"
+            className={cn("h-7 w-7 hover:bg-destructive hover:text-destructive-foreground", 
+              node.customBackgroundColor ? buttonTextColorClass : (isRoot ? "text-primary-foreground" : "text-accent-foreground")
             )}
           >
             <Trash2 className="h-4 w-4" />
@@ -101,19 +108,16 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
 
-      {/* V1.0.0: No imageUrl display logic */}
-
-      {/* Description box always present, even if empty, for consistent height if styled with min-height */}
       <div className={cn(
           "p-3 text-sm rounded-b-xl flex-grow",
           descriptionBgClass, 
           descriptionTextColorClass,
-          !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]` // Ensure min height if description is empty
+          !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]` 
       )}>
         {node.description ? (
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         ) : (
-          <div className="h-full"></div> // Ensures the div takes up space for min-height
+          <div className="h-full"></div> 
         )}
       </div>
     </div>
