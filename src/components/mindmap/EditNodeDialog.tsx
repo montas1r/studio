@@ -33,8 +33,10 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
-const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | ''; colorSample?: string }> = [
-  { label: 'Default Theme', value: '' },
+const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; // Unique value for the "Default Theme" option
+
+const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | typeof NO_CUSTOM_COLOR_VALUE; colorSample?: string }> = [
+  { label: 'Default Theme', value: NO_CUSTOM_COLOR_VALUE },
   { label: 'Coral', value: 'chart-1', colorSample: 'hsl(var(--chart-1))' },
   { label: 'Teal', value: 'chart-2', colorSample: 'hsl(var(--chart-2))' },
   { label: 'Indigo', value: 'chart-3', colorSample: 'hsl(var(--chart-3))' },
@@ -174,7 +176,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               className="col-span-3"
-              placeholder="https://example.com/image.png (Optional)"
+              placeholder="https://placehold.co/300x150.png (Optional)"
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -184,20 +186,26 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </div>
             </Label>
             <Select
-              value={customBackgroundColor}
-              onValueChange={(value) => setCustomBackgroundColor(value as PaletteColorKey | '')}
+              value={customBackgroundColor || NO_CUSTOM_COLOR_VALUE}
+              onValueChange={(value) => {
+                if (value === NO_CUSTOM_COLOR_VALUE) {
+                  setCustomBackgroundColor('');
+                } else {
+                  setCustomBackgroundColor(value as PaletteColorKey);
+                }
+              }}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select a color" />
               </SelectTrigger>
               <SelectContent>
                 {PALETTE_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value || 'default'} value={opt.value}>
+                  <SelectItem key={opt.value} value={opt.value}>
                     <div className="flex items-center gap-2">
                       {opt.colorSample && (
                         <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
                       )}
-                       {!opt.colorSample && opt.label === 'Default Theme' && (
+                       {opt.value === NO_CUSTOM_COLOR_VALUE && (
                         <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
                       )}
                       {opt.label}
@@ -216,3 +224,4 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     </Dialog>
   );
 }
+
