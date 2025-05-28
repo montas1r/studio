@@ -6,7 +6,8 @@ export interface NodeData {
   title: string;
   description: string;
   emoji?: string;
-  customBackgroundColor?: PaletteColorKey;
+  customBackgroundColor?: PaletteColorKey; // Updated to use PaletteColorKey
+  // imageUrl?: string; // Removed for this revert
   parentId: string | null;
   childIds: string[];
   x: number;
@@ -42,4 +43,5 @@ export interface EditNodeInput {
   description: string;
   emoji?: string;
   customBackgroundColor?: PaletteColorKey | ''; // Allow empty string to clear
+  // imageUrl?: string; // Removed for this revert
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
+// import Image from 'next/image'; // Removed for this revert
 
 interface NodeCardProps {
   node: NodeData;
@@ -42,11 +43,11 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   if (node.customBackgroundColor) {
     const customColorVar = `var(--${node.customBackgroundColor})`;
     cardStyle.backgroundColor = `hsl(${customColorVar})`;
-    currentCardClasses = cn(cardBaseClasses, `border-[hsl(${customColorVar})]`); // Use HSL for border too
-    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); // Make header transparent to show node bg
-    currentButtonTextClass = "text-[hsl(var(--card-foreground))] dark:text-[hsl(var(--card-foreground))]"; // Ensure good contrast for buttons
-    descriptionBgClass = `bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.2)]`; // Lighter version of custom color
-                                                                                    // Assumes you might add raw HSL values too
+    currentCardClasses = cn(cardBaseClasses, `border-[hsl(${customColorVar})]`); 
+    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); 
+    currentButtonTextClass = "text-[hsl(var(--card-foreground))] dark:text-[hsl(var(--card-foreground))]";
+    // Use hsla for background with opacity for the description
+    descriptionBgClass = `bg-[hsla(var(--${node.customBackgroundColor}),0.2)]`;
   } else {
     currentCardClasses = cn(cardBaseClasses, isRoot ? rootNodeCardClasses : childNodeCardClasses);
     currentHeaderClasses = cn(headerBaseClasses, isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses);
@@ -55,14 +56,15 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   }
   
   const buttonHoverBgClass = node.customBackgroundColor 
-    ? "hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)] dark:hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)]" // Lighten/darken based on foreground
+    ? "hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)] dark:hover:bg-[hsla(var(--card-foreground-raw,0_0%_98%),0.1)]"
     : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30");
 
+  // const showImage = node.imageUrl && isValidHttpUrl(node.imageUrl); // Removed for this revert
 
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className, "node-card-draggable")} // Added for specific targeting if needed
+      className={cn(currentCardClasses, className)} 
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
@@ -87,29 +89,29 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
 
+      {/* Image display removed for this revert */}
+
       {node.description && (
         <div className={cn(
             "p-3 text-sm rounded-b-xl flex-grow",
-            descriptionBgClass,
+            descriptionBgClass, // Apply the potentially semi-transparent background
             node.customBackgroundColor ? 'text-[hsl(var(--card-foreground))] opacity-80' : 'text-card-foreground/80'
         )}>
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         </div>
       )}
-      {/* Placeholder if no description */}
       {(!node.description) && <div className="min-h-[20px]"></div>}
     </div>
   );
 }
 
-// Helper to check for valid HTTP/HTTPS URL (basic check)
-function isValidHttpUrl(string?: string) {
-  if (!string) return false;
-  let url;
-  try {
-    url = new URL(string);
-  } catch (_) {
-    return false;  
-  }
-  return url.protocol === "http:" || url.protocol === "https:";
-}
+// function isValidHttpUrl(string?: string) { // Removed for this revert
+//   if (!string) return false;
+//   let url;
+//   try {
+//     url = new URL(string);
+//   } catch (_) {
+//     return false;  
+//   }
+//   return url.protocol === "http:" || url.protocol === "https:";
+// }

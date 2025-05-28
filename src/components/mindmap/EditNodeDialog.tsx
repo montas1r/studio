@@ -33,7 +33,7 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
-const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; // Unique value for default option
+const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; 
 
 const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | typeof NO_CUSTOM_COLOR_VALUE; colorSample?: string }> = [
   { label: 'Default Theme', value: NO_CUSTOM_COLOR_VALUE },
@@ -49,6 +49,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
   const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | ''>('');
+  // const [imageUrl, setImageUrl] = useState(''); // Removed for this revert
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -58,6 +59,14 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setDescription(node.description);
       setEmoji(node.emoji || '');
       setCustomBackgroundColor(node.customBackgroundColor || '');
+      // setImageUrl((node as any).imageUrl || ''); // Removed for this revert
+    } else {
+      // Reset fields if no node is passed (e.g. dialog closed and reopened)
+      setTitle('');
+      setDescription('');
+      setEmoji('');
+      setCustomBackgroundColor('');
+      // setImageUrl(''); // Removed for this revert
     }
   }, [node]);
 
@@ -68,6 +77,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         description,
         emoji: emoji.trim() || undefined,
         customBackgroundColor: customBackgroundColor || undefined,
+        // imageUrl: imageUrl.trim() || undefined, // Removed for this revert
       });
       onOpenChange(false);
     }
@@ -109,7 +119,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Edit Node</DialogTitle>
+          <DialogTitle>{node.id.startsWith('temp-') ? 'Create New Node' : 'Edit Node'}</DialogTitle>
           <DialogDescription>
             Update the details for this node. You can use AI to summarize the description.
           </DialogDescription>
@@ -125,7 +135,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               onChange={(e) => setEmoji(e.target.value)}
               className="col-span-3"
               placeholder="✨ (Optional)"
-              maxLength={2} // Emojis can sometimes be 2 chars
+              maxLength={2} 
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -189,7 +199,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                       {opt.colorSample && (
                         <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
                       )}
-                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( // Show a default sample for "Default Theme"
+                       {opt.value === NO_CUSTOM_COLOR_VALUE && (
                         <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
                       )}
                       {opt.label}
@@ -199,6 +209,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </SelectContent>
             </Select>
           </div>
+          {/* Image URL input removed for this revert */}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
