@@ -6,15 +6,14 @@ import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput,
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
-const NODE_CARD_WIDTH = 300; // This needs to be defined first if others use it
 
 export function useMindmaps() {
-  // Layout constants moved inside the hook for clarity
+  const NODE_CARD_WIDTH = 300;
   const INITIAL_ROOT_X = 0;
   const INITIAL_ROOT_Y = 0;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50; 
   const CHILD_X_OFFSET = 0; 
-  const CHILD_Y_OFFSET = 180; // Approximate height of NodeCard + spacing
+  const CHILD_Y_OFFSET = 180; 
 
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +34,7 @@ export function useMindmaps() {
         if (node && (node.x === undefined || node.y === undefined)) {
           newNodes[rootId] = {
             ...node,
-            x: localCurrentRootX, // Position roots sequentially if new
+            x: localCurrentRootX, 
             y: INITIAL_ROOT_Y
           };
           localCurrentRootX += ROOT_X_SPACING;
@@ -66,13 +65,13 @@ export function useMindmaps() {
           }
         }
         
-        if ((node as any).imageUrl) { 
-            delete (node as any).imageUrl;
-            needsUpdate = true;
-        }
         // Ensure customBackgroundColor is valid PaletteColorKey or undefined
         if (node.customBackgroundColor && !(['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'] as PaletteColorKey[]).includes(node.customBackgroundColor)) {
             node.customBackgroundColor = undefined;
+            needsUpdate = true;
+        }
+         if ((node as any).imageUrl) { 
+            delete (node as any).imageUrl;
             needsUpdate = true;
         }
       });
@@ -85,7 +84,7 @@ export function useMindmaps() {
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, []);
+  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, NODE_CARD_WIDTH, ROOT_X_SPACING]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -192,7 +191,7 @@ export function useMindmaps() {
 
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
+  }, [getMindmapById, updateMindmap, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET, NODE_CARD_WIDTH]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {

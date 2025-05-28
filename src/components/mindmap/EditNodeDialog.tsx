@@ -51,6 +51,8 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setEmoji(node.emoji || '');
       setCustomBackgroundColor(node.customBackgroundColor || 'no-custom-color');
     } else {
+      // Reset for new node creation, which shouldn't happen if node is null
+      // This dialog expects a node (even a temporary one for creation)
       setTitle('');
       setDescription('');
       setEmoji('');
@@ -159,7 +161,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
+           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="node-bg-color" className="text-right">
               BG Color
             </Label>

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-// No Image import in this version
 
 interface NodeCardProps {
   node: NodeData;
@@ -37,21 +36,21 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
   let descriptionBgClass = ""; 
-  let descriptionTextColorClass = "text-foreground/80";
+  let descriptionTextColorClass = "";
 
   const nodeColorVar = node.customBackgroundColor ? `--${node.customBackgroundColor}` : (isRoot ? '--primary' : '--accent');
   const nodeColorRawVar = node.customBackgroundColor ? `--${node.customBackgroundColor}-raw` : (isRoot ? '--primary' : '--accent'); // Assume raw vars exist for primary/accent too or use a fallback
   const nodeFgColorVar = node.customBackgroundColor ? `--${node.customBackgroundColor}-foreground` : (isRoot ? '--primary-foreground' : '--accent-foreground');
-
 
   if (node.customBackgroundColor) {
     cardStyle.backgroundColor = `hsl(var(${nodeColorVar}))`;
     currentCardClasses = cn(currentCardClasses, `border-[hsl(var(${nodeColorVar}))]`);
     headerTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]`;
     buttonTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]`;
-    buttonHoverBgClass = `hover:bg-[hsla(var(${nodeColorRawVar},var(${nodeColorVar})),0.8)]`; // Use raw for opacity
-    descriptionBgClass = `bg-[hsla(var(${nodeColorRawVar},var(${nodeColorVar})),0.1)]`; // Lighter, translucent version
-    descriptionTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]/90`;
+    // Use a more generic hover that slightly darkens or lightens based on brightness, or a fixed subtle hover
+    buttonHoverBgClass = `hover:bg-black/10 dark:hover:bg-white/10`; 
+    descriptionBgClass = `bg-[hsla(var(${nodeColorRawVar},var(${nodeColorVar})),0.2)]`; // Use raw for opacity, 20% opacity
+    descriptionTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]/90`; // Slightly less opacity than header
   } else if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/20 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/30");
@@ -73,7 +72,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className)} 
+      className={cn(currentCardClasses, className, "node-card-draggable")} // Added node-card-draggable here
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
