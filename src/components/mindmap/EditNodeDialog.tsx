@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { EditNodeInput, NodeData } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2 } from 'lucide-react'; // Removed Palette
+import { Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EditNodeDialogProps {
@@ -39,7 +39,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setDescription(node.description);
       setEmoji(node.emoji || '');
     } else {
-      // Reset form for new node creation (if applicable by temporary node)
       setTitle('');
       setDescription('');
       setEmoji('');
@@ -146,7 +145,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          {/* Removed custom background color select */}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

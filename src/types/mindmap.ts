@@ -2,6 +2,14 @@
 // This version is simplified, before PaletteColorKey, customBackgroundColor, or imageUrl.
 // It has a basic emoji field.
 
+export type PaletteColorKey =
+  | 'chart-1'
+  | 'chart-2'
+  | 'chart-3'
+  | 'chart-4'
+  | 'chart-5';
+
+
 export interface NodeData {
   id: string;
   title: string;
@@ -11,6 +19,7 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
+  // Removed customBackgroundColor and imageUrl for V1.0.0 baseline
 }
 
 export interface NodesObject {
@@ -41,4 +50,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
+  // Removed customBackgroundColor and imageUrl for V1.0.0 baseline
 }

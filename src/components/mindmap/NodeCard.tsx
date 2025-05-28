@@ -30,11 +30,13 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
 
   let currentCardClasses = cardBaseClasses;
   let currentHeaderClasses = headerBaseClasses;
-  let descriptionBgClass = "bg-card"; // Default background for description
+  let descriptionBgClass = "bg-card"; 
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
 
+
+  // V1.0.0: Simplified styling without customBackgroundColor from palette
   if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/10 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/20 text-primary-foreground");
@@ -58,6 +60,9 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
+      // Stop propagation for clicks on the card itself to prevent canvas pan/selection interference
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()} // Important for preventing pan when starting a drag
     >
       <div className={cn(currentHeaderClasses)}>
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -83,7 +88,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         <div className={cn(
             "p-3 text-sm rounded-b-xl flex-grow",
             descriptionBgClass, 
-            'text-card-foreground/80' // Simplified text color for description
+            'text-card-foreground/80' 
         )}>
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         </div>

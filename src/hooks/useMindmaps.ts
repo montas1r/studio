@@ -11,7 +11,7 @@ export function useMindmaps() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Define layout constants inside the hook for encapsulation
-  const NODE_CARD_WIDTH = 300; // Must be defined first if others use it
+  const NODE_CARD_WIDTH = 300;
   const INITIAL_ROOT_X = 0;
   const INITIAL_ROOT_Y = 0;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
@@ -67,6 +67,10 @@ export function useMindmaps() {
             localCurrentRootX += ROOT_X_SPACING;
           }
         }
+        // For V1.0.0, ensure no customBackgroundColor or imageUrl fields persist if not defined in NodeData
+        if ('customBackgroundColor' in node) delete (node as any).customBackgroundColor;
+        if ('imageUrl' in node) delete (node as any).imageUrl;
+
       });
       
       currentRootXGlobal = Math.max(currentRootXGlobal, localCurrentRootX);
@@ -80,7 +84,7 @@ export function useMindmaps() {
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, ROOT_X_SPACING, NODE_CARD_WIDTH]); // Added dependencies for layout constants
+  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, ROOT_X_SPACING, NODE_CARD_WIDTH]);
 
   useEffect(() => {
     if (!isLoading) {
