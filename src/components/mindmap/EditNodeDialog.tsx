@@ -49,7 +49,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
   const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | ''>('');
-  // const [imageUrl, setImageUrl] = useState(''); // Removed for this revert
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -59,14 +58,11 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setDescription(node.description);
       setEmoji(node.emoji || '');
       setCustomBackgroundColor(node.customBackgroundColor || '');
-      // setImageUrl((node as any).imageUrl || ''); // Removed for this revert
     } else {
-      // Reset fields if no node is passed (e.g. dialog closed and reopened)
       setTitle('');
       setDescription('');
       setEmoji('');
       setCustomBackgroundColor('');
-      // setImageUrl(''); // Removed for this revert
     }
   }, [node]);
 
@@ -77,7 +73,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         description,
         emoji: emoji.trim() || undefined,
         customBackgroundColor: customBackgroundColor || undefined,
-        // imageUrl: imageUrl.trim() || undefined, // Removed for this revert
       });
       onOpenChange(false);
     }
@@ -199,7 +194,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                       {opt.colorSample && (
                         <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
                       )}
-                       {opt.value === NO_CUSTOM_COLOR_VALUE && (
+                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( // Show a default sample for "Default Theme"
                         <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
                       )}
                       {opt.label}
@@ -209,7 +204,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </SelectContent>
             </Select>
           </div>
-          {/* Image URL input removed for this revert */}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
