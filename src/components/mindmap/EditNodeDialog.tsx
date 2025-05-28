@@ -194,7 +194,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                       {opt.colorSample && (
                         <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
                       )}
-                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( // Show a default sample for "Default Theme"
+                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( 
                         <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
                       )}
                       {opt.label}

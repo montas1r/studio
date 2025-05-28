@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
-import { PlusCircle, Download, ArrowLeft, AlertTriangle, Layers } from 'lucide-react';
+import { PlusCircle, Download, ArrowLeft, AlertTriangle, Layers, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -32,7 +32,7 @@ interface MindmapEditorProps {
 
 const NODE_CARD_WIDTH = 300;
 const NODE_HEADER_HEIGHT = 50; 
-const CANVAS_CONTENT_WIDTH = '1200px'; // Default large canvas for scrolling
+const CANVAS_CONTENT_WIDTH = '1200px'; 
 const CANVAS_CONTENT_HEIGHT = '1200px';
 
 export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
@@ -187,10 +187,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     let newX = event.clientX - canvasRect.left + canvasRef.current.scrollLeft - dragOffset.x;
     let newY = event.clientY - canvasRect.top + canvasRef.current.scrollTop - dragOffset.y;
     
-    // Ensure nodes don't go to negative coordinates to simplify SVG rendering and layout
-    // newX = Math.max(0, newX); 
-    // newY = Math.max(0, newY);
-
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
   }, [draggedNodeId, mindmap, dragOffset, updateNodePosition]);
@@ -213,7 +209,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         <h2 className="text-2xl font-bold">Mindmap Not Found</h2>
         <p className="text-muted-foreground">The mindmap you are looking for does not exist or has been deleted.</p>
         <Button asChild variant="outline" size="sm">
-          <Link href="/"><ArrowLeft className="mr-1 h-3 w-3" /> Library</Link>
+          <Link href="/"><Home className="mr-1.5 h-4 w-4" /> Library</Link>
         </Button>
       </div>
     );
@@ -224,35 +220,35 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     <TooltipProvider>
       <div className="flex flex-col h-full flex-grow w-full">
         {/* Top Control Bar */}
-        <div className="p-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30 shadow-sm space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            <div className="flex items-center gap-1.5 flex-shrink-0 min-w-0">
-               <Tooltip>
+         <div className="p-2 border-b bg-background/95 backdrop-blur-sm sticky top-0 z-30 shadow-sm space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
+              <Tooltip>
                 <TooltipTrigger asChild>
                   <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                    <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
+                    <Link href="/"><Home className="h-4 w-4" /></Link>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Back to Library</p></TooltipContent>
               </Tooltip>
-              <h1 className="text-lg font-semibold text-foreground truncate" title={mindmap.name}>
+              <h1 className="text-xl font-semibold text-foreground truncate" title={mindmap.name}>
                 {mindmap.name}
               </h1>
-                {mindmap.category && (
-                  <span className="ml-1 text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
-                    <Layers className="h-3 w-3" /> {mindmap.category}
-                  </span>
-                )}
+              {mindmap.category && (
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <Layers className="h-3 w-3" /> {mindmap.category}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                 <Tooltip>
-                    <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleExportJson} className="h-8 w-8">
-                        <Download className="h-4 w-4" />
-                    </Button>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Export JSON</p></TooltipContent>
-                </Tooltip>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleExportJson} className="h-8 w-8">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Export JSON</p></TooltipContent>
+              </Tooltip>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch gap-2">
@@ -268,7 +264,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
               onChange={(e) => setNewRootNodeDescription(e.target.value)}
               placeholder="Description (Optional)"
               rows={1}
-              className="flex-grow text-sm min-h-[36px] h-9 resize-y max-h-24"
+              className="flex-grow text-sm min-h-[36px] h-9 resize-y max-h-24" 
             />
             <Button onClick={handleAddRootNode} size="sm" className="h-9 text-sm whitespace-nowrap px-3">
               <PlusCircle className="mr-1.5 h-4 w-4" /> Add Root Idea
@@ -279,7 +275,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         {/* Main Canvas Area - Simple Scrollable Div */}
         <div
           ref={canvasRef}
-          className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-180px)] sm:min-h-[calc(100vh-160px)]" // Adjusted min-height
+          className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-200px)] sm:min-h-[calc(100vh-180px)]"
           onDragOver={handleDragOverCanvas}
           onDrop={handleDropOnCanvas}
         >
@@ -310,7 +306,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                         height: CANVAS_CONTENT_HEIGHT,
                         overflow: 'visible', 
                     }}
-                    key={`svg-lines-key-${allNodes.map(n => `${n.id}-${n.x}-${n.y}-${n.customBackgroundColor || ''}`).join('-')}`} // More robust key
+                    key={`svg-lines-key-${allNodes.map(n => `${n.id}-${n.x}-${n.y}-${n.customBackgroundColor || ''}`).join('-')}`}
                 >
                 {allNodes.map(node => {
                     if (!node.parentId) return null;
@@ -318,12 +314,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     if (!parentNode) return null;
 
                     const startX = (parentNode.x ?? 0) + NODE_CARD_WIDTH / 2;
-                    let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT; // From bottom-middle of parent header
+                    let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT; 
                    
                     const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
-                    const endY = (node.y ?? 0); // To top-middle of child
+                    const endY = (node.y ?? 0); 
 
-                    // Control points for Bezier curve
                     const c1x = startX;
                     const c1y = startY + Math.max(20, Math.abs(endY - startY) / 2);
                     const c2x = endX;
@@ -334,7 +329,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                     let strokeColor = "hsl(var(--accent))"; 
                     if (parentNode.customBackgroundColor) {
                         strokeColor = `hsl(var(--${parentNode.customBackgroundColor}))`;
-                    } else if (!parentNode.parentId) { // Parent is a root node
+                    } else if (!parentNode.parentId) { 
                         strokeColor = "hsl(var(--primary))";
                     }
 
@@ -354,7 +349,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   <div
                     className="absolute flex items-center justify-center pointer-events-none text-center"
                     style={{
-                      top: `calc(50% - 50px)`, // Adjusted for potential header height
+                      top: `calc(50% - 50px)`, 
                       left: `50%`,
                       transform: `translate(-50%, -50%)`, 
                       width: 'auto',
