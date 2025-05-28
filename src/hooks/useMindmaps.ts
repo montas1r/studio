@@ -6,13 +6,12 @@ import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput,
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
-// Define fundamental constants at module scope
-const NODE_CARD_WIDTH = 300;
-const INITIAL_ROOT_X = 0; // Centered for the first node, others spread out
+const NODE_CARD_WIDTH = 300; // Define fundamental constants at module scope
+const INITIAL_ROOT_X = 0;
 const INITIAL_ROOT_Y = 0;
-const ROOT_X_SPACING = NODE_CARD_WIDTH + 60; // Increased spacing
-const CHILD_X_OFFSET = 0; 
-const CHILD_Y_OFFSET = 180; // Vertical spacing between parent and child
+const ROOT_X_SPACING = NODE_CARD_WIDTH + 60;
+const CHILD_X_OFFSET = 0;
+const CHILD_Y_OFFSET = 180;
 
 export function useMindmaps() {
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
@@ -20,53 +19,52 @@ export function useMindmaps() {
 
   useEffect(() => {
     const loadedMindmaps = getMindmapsFromStorage();
-    // Basic migration for nodes that might not have x,y or ensure rootNodeIds is array
     const migratedMindmaps = loadedMindmaps.map(m => {
       let needsUpdate = false;
       const newNodes = { ...m.data.nodes };
-      let currentRootX = INITIAL_ROOT_X; // Start from initial for layout calculation
+      let currentRootX = INITIAL_ROOT_X;
 
       const rootNodeIds = Array.isArray(m.data.rootNodeIds) ? m.data.rootNodeIds : [];
 
-      // Initialize positions for root nodes if they don't exist
       rootNodeIds.forEach((rootId, index) => {
         if (newNodes[rootId] && (newNodes[rootId].x === undefined || newNodes[rootId].y === undefined)) {
           newNodes[rootId] = {
             ...newNodes[rootId],
-            x: INITIAL_ROOT_X + index * ROOT_X_SPACING, // Spread out root nodes
+            x: INITIAL_ROOT_X + index * ROOT_X_SPACING,
             y: INITIAL_ROOT_Y
           };
           needsUpdate = true;
         }
       });
 
-      // Initialize positions for child nodes if they don't exist
       Object.keys(newNodes).forEach(nodeId => {
         const node = newNodes[nodeId];
         if (node.x === undefined || node.y === undefined) {
-          if (!rootNodeIds.includes(nodeId)) { // Only apply default if not a root (roots handled above)
+          if (!rootNodeIds.includes(nodeId)) {
             needsUpdate = true;
             if (node.parentId && newNodes[node.parentId]) {
               const parentNode = newNodes[node.parentId];
               const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
               const siblingIndex = parentChildIds.indexOf(nodeId);
-              const numSiblings = parentChildIds.length > 0 ? parentChildIds.length : 1;
-              
-              // Basic horizontal stacking for children for now
               newNodes[nodeId] = {
                 ...node,
                 x: (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingIndex * (NODE_CARD_WIDTH + 30)),
                 y: (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET,
               };
-            } else { // Orphaned node, place it somewhere
+            } else {
               newNodes[nodeId] = {
                 ...node,
-                x: currentRootX, // Use a running counter for orphans
-                y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2, // Place them lower
+                x: currentRootX,
+                y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2,
               };
               currentRootX += ROOT_X_SPACING;
             }
           }
+        }
+        // Ensure customBackgroundColor is valid or undefined
+        if (node.customBackgroundColor === '') {
+            newNodes[nodeId] = { ...node, customBackgroundColor: undefined };
+            needsUpdate = true;
         }
       });
 
@@ -133,18 +131,16 @@ export function useMindmaps() {
         if (parentNode) {
             const parentChildIds = Array.isArray(parentNode.childIds) ? parentNode.childIds : [];
             const siblingCount = parentChildIds.length;
-            // Simple stacking: new child goes to the right of existing children
             x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
             y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
         }
     } else {
-        // Place new root nodes to the right of existing root nodes
         if (currentRootNodeIds.length > 0) {
             const lastRootNodeId = currentRootNodeIds[currentRootNodeIds.length -1];
             const lastRootNode = mindmap.data.nodes[lastRootNodeId];
             x = (lastRootNode?.x ?? INITIAL_ROOT_X - ROOT_X_SPACING) + ROOT_X_SPACING;
         } else {
-            x = INITIAL_ROOT_X; // First root node
+            x = INITIAL_ROOT_X;
         }
         y = INITIAL_ROOT_Y;
     }
@@ -154,7 +150,6 @@ export function useMindmaps() {
       title: nodeDetails.title,
       description: nodeDetails.description,
       emoji: nodeDetails.emoji,
-      imageUrl: nodeDetails.imageUrl,
       customBackgroundColor: nodeDetails.customBackgroundColor === '' ? undefined : nodeDetails.customBackgroundColor,
       parentId,
       childIds: [],
@@ -188,7 +183,6 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      imageUrl: updates.imageUrl || undefined,
       customBackgroundColor: updates.customBackgroundColor === '' ? undefined : (updates.customBackgroundColor as PaletteColorKey | undefined),
     };
 

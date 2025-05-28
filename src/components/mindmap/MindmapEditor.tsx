@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
-import { PlusCircle, Download, ArrowLeft, AlertTriangle, LocateFixed } from 'lucide-react';
+import { PlusCircle, Download, ArrowLeft, AlertTriangle, Palette, LocateFixed, Hand, ZoomIn, ZoomOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -30,7 +30,7 @@ interface MindmapEditorProps {
 }
 
 const NODE_CARD_WIDTH = 300;
-const NODE_HEADER_HEIGHT = 50; 
+const NODE_HEADER_HEIGHT = 50;
 const CANVAS_CONTENT_WIDTH = '1200px'; // Default canvas size
 const CANVAS_CONTENT_HEIGHT = '1200px';
 
@@ -45,11 +45,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [newRootNodeDescription, setNewRootNodeDescription] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ id: string; title: string | undefined } | null>(null);
-  
+
   const { toast } = useToast();
 
   const canvasRef = useRef<HTMLDivElement>(null); // For the scrollable container
-  const canvasContentRef = useRef<HTMLDivElement>(null); // For the content that gets transformed
+  const canvasContentRef = useRef<HTMLDivElement>(null); // For the content that nodes are positioned relative to
 
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -65,19 +65,24 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       setNewRootNodeTitle('');
       setNewRootNodeDescription('');
       toast({ title: "Root Node Added", description: `"${newNode.title}" added to the mindmap.` });
-      // Simple scroll into view if canvasRef exists
+      // Basic scroll into view
       setTimeout(() => {
         if (canvasRef.current) {
-          const nodeElement = document.getElementById(`node-${newNode.id}`);
-          if (nodeElement) {
-            const canvasRect = canvasRef.current.getBoundingClientRect();
-            const nodeRect = nodeElement.getBoundingClientRect();
-            canvasRef.current.scrollTo({
-              left: canvasRef.current.scrollLeft + nodeRect.left - canvasRect.left - (canvasRect.width / 2) + (nodeRect.width / 2),
-              top: canvasRef.current.scrollTop + nodeRect.top - canvasRect.top - (canvasRect.height / 2) + (nodeRect.height / 2),
-              behavior: 'smooth'
-            });
-          }
+            const nodeElement = document.getElementById(`node-${newNode.id}`);
+            if (nodeElement) {
+                // Calculate scroll position to center the new node
+                const canvasRect = canvasRef.current.getBoundingClientRect();
+                const nodeRect = nodeElement.getBoundingClientRect(); // This is relative to viewport
+
+                const desiredScrollLeft = newNode.x - (canvasRect.width / 2) + (NODE_CARD_WIDTH / 2);
+                const desiredScrollTop = newNode.y - (canvasRect.height / 2) + (NODE_HEADER_HEIGHT / 2);
+
+                canvasRef.current.scrollTo({
+                    left: desiredScrollLeft,
+                    top: desiredScrollTop,
+                    behavior: 'smooth'
+                });
+            }
         }
       }, 100);
     }
@@ -87,6 +92,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
+
     const tempNewNode: NodeData = {
       id: `temp-${uuidv4()}`,
       title: '',
@@ -94,8 +100,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       emoji: "➕",
       parentId: parentId,
       childIds: [],
-      x: (parentNode.x ?? 0), 
-      y: (parentNode.y ?? 0) + 100, // Initial placement below parent
+      x: (parentNode.x ?? 0),
+      y: (parentNode.y ?? 0) + NODE_HEADER_HEIGHT + 100, // Initial placement below parent
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
@@ -112,19 +118,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const permanentNode = addNode(mindmap.id, editingNode.parentId, data);
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
-        setTimeout(() => {
-          if (canvasRef.current) {
-            const nodeElement = document.getElementById(`node-${permanentNode.id}`);
-            if (nodeElement) {
-              const canvasRect = canvasRef.current.getBoundingClientRect();
-              const nodeRect = nodeElement.getBoundingClientRect();
-              canvasRef.current.scrollTo({
-                left: canvasRef.current.scrollLeft + nodeRect.left - canvasRect.left - (canvasRect.width / 2) + (nodeRect.width / 2),
-                top: canvasRef.current.scrollTop + nodeRect.top - canvasRect.top - (canvasRect.height / 2) + (nodeRect.height / 2),
-                behavior: 'smooth'
-              });
+         setTimeout(() => { // Scroll to newly created child node
+            if (canvasRef.current) {
+                const nodeElement = document.getElementById(`node-${permanentNode.id}`);
+                if (nodeElement) {
+                    const canvasRect = canvasRef.current.getBoundingClientRect();
+                    const desiredScrollLeft = permanentNode.x - (canvasRect.width / 2) + (NODE_CARD_WIDTH / 2);
+                    const desiredScrollTop = permanentNode.y - (canvasRect.height / 2) + (NODE_HEADER_HEIGHT / 2);
+                    canvasRef.current.scrollTo({
+                        left: desiredScrollLeft,
+                        top: desiredScrollTop,
+                        behavior: 'smooth'
+                    });
+                }
             }
-          }
         }, 100);
       }
     } else {
@@ -152,25 +159,27 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     setNodeToDelete(null);
   }, [mindmap, nodeToDelete, deleteNodeFromHook, toast]);
 
-  const handleNodeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
+ const handleNodeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
     if (!mindmap || !canvasContentRef.current) return;
     const node = mindmap.data.nodes[nodeId];
     if (!node) return;
 
     const canvasContentRect = canvasContentRef.current.getBoundingClientRect();
-    
-    // Mouse position relative to the canvasContentRef's top-left corner
-    const mouseXInCanvasContent = event.clientX - canvasContentRect.left;
-    const mouseYInCanvasContent = event.clientY - canvasContentRect.top;
+    const nodeElement = document.getElementById(`node-${nodeId}`);
+    if (!nodeElement) return;
+    const nodeRect = nodeElement.getBoundingClientRect(); // Node's current pos on screen
 
+    // Calculate offset from node's top-left corner to mouse click point
     setDragOffset({
-      x: mouseXInCanvasContent - (node.x ?? 0),
-      y: mouseYInCanvasContent - (node.y ?? 0),
+      x: event.clientX - nodeRect.left,
+      y: event.clientY - nodeRect.top,
     });
+
     setDraggedNodeId(nodeId);
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", nodeId); // Necessary for Firefox
+    event.dataTransfer.setData("text/plain", nodeId);
   }, [mindmap]);
+
 
   const handleDragOverCanvas = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -184,16 +193,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!draggedNodeId || !mindmap || !canvasContentRef.current || !canvasRef.current) return;
 
     const canvasContentRect = canvasContentRef.current.getBoundingClientRect();
-    
-    const mouseXInCanvasContent = event.clientX - canvasContentRect.left;
-    const mouseYInCanvasContent = event.clientY - canvasContentRect.top;
+
+    // Mouse position relative to the scrolled canvas content's top-left corner
+    const mouseXInCanvasContent = event.clientX - canvasContentRect.left + canvasRef.current.scrollLeft;
+    const mouseYInCanvasContent = event.clientY - canvasContentRect.top + canvasRef.current.scrollTop;
 
     let newX = mouseXInCanvasContent - dragOffset.x;
     let newY = mouseYInCanvasContent - dragOffset.y;
-    
-    // No clamping to allow free movement, including negative coordinates
-    // newX = Math.max(0, newX); 
-    // newY = Math.max(0, newY);
 
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
@@ -210,17 +216,16 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }, [mindmap, toast]);
 
   useEffect(() => {
-    // Center initial view (very basic, can be improved)
     if (canvasRef.current && mindmap && Object.keys(mindmap.data.nodes).length > 0) {
-        const firstRootNodeId = mindmap.data.rootNodeIds[0];
-        if (firstRootNodeId && mindmap.data.nodes[firstRootNodeId]) {
-            const firstNode = mindmap.data.nodes[firstRootNodeId];
-            const targetX = (firstNode.x ?? 0) - (canvasRef.current.offsetWidth / 2) + (NODE_CARD_WIDTH / 2);
-            const targetY = (firstNode.y ?? 0) - (canvasRef.current.offsetHeight / 2) + (NODE_HEADER_HEIGHT / 2);
-            canvasRef.current.scrollTo({ left: targetX, top: targetY, behavior: 'auto' });
-        }
+      const firstRootNodeId = mindmap.data.rootNodeIds[0];
+      if (firstRootNodeId && mindmap.data.nodes[firstRootNodeId]) {
+        const firstNode = mindmap.data.nodes[firstRootNodeId];
+        const targetX = (firstNode.x ?? 0) - (canvasRef.current.offsetWidth / 2) + (NODE_CARD_WIDTH / 2);
+        const targetY = (firstNode.y ?? 0) - (canvasRef.current.offsetHeight / 2) + (NODE_HEADER_HEIGHT / 2);
+        canvasRef.current.scrollTo({ left: targetX, top: targetY, behavior: 'auto' });
+      }
     }
-  }, [mindmapId, mindmap]); // Run when mindmapId changes or mindmap data loads
+  }, [mindmapId, mindmap]);
 
   if (!mindmap) {
     return (
@@ -240,8 +245,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     <TooltipProvider>
       <div className="flex flex-col h-full flex-grow w-full">
         {/* Top Control Bar */}
-        <div className="p-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2">
+        <div className="p-1 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 mb-2 px-2">
             <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -251,22 +256,22 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                 </TooltipTrigger>
                 <TooltipContent><p>Back to Library</p></TooltipContent>
               </Tooltip>
-              <h1 className="text-lg font-semibold text-foreground truncate" title={mindmap.name}>
+              <h1 className="text-base font-semibold text-foreground truncate" title={mindmap.name}>
                 {mindmap.name}
               </h1>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <Tooltip>
-                  <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleExportJson} className="h-8 w-8">
-                          <Download className="h-4 w-4" />
-                      </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Export JSON</p></TooltipContent>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleExportJson} className="h-8 w-8">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Export JSON</p></TooltipContent>
               </Tooltip>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2 px-2 pb-1">
             <Input
               type="text"
               value={newRootNodeTitle}
@@ -289,96 +294,92 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
         {/* Main Canvas Area - Scrollable */}
         <div
-          ref={canvasRef} // This is the scrollable viewport
-          className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-180px)] sm:min-h-[calc(100vh-160px)]"
+          ref={canvasRef}
+          className="flex-grow relative overflow-auto bg-muted/20 min-h-[calc(100vh-160px)] sm:min-h-[calc(100vh-140px)]" // Adjusted min-height
           onDragOver={handleDragOverCanvas}
-          onDrop={handleDrop}
         >
-          {/* Content Div - Large fixed size for node placement, this is what gets panned/zoomed if we re-add those tools */}
-          <div
-            ref={canvasContentRef} 
-            className="relative" // Removed border, as the parent div has no explicit border now
-            style={{
-              width: CANVAS_CONTENT_WIDTH,
-              height: CANVAS_CONTENT_HEIGHT,
-              // transform: `scale(${scale}) translate(${pan.x}px, ${pan.y}px)`, // Removed transform for simplicity
-              // transformOrigin: '0 0',
-            }}
-          >
-            {/* Render Nodes */}
-            {allNodes.map((node) => (
-              <NodeCard
-                key={node.id}
-                node={node}
-                isRoot={!node.parentId}
-                onEdit={handleEditNode}
-                onDelete={requestDeleteNode}
-                onAddChild={handleAddChildNode}
-                onDragStart={handleNodeDragStart}
-                className="node-card-draggable"
-              />
-            ))}
-
-            {/* Render Connecting Lines */}
-            <svg
-              className="absolute top-0 left-0 pointer-events-none"
-              style={{
-                width: CANVAS_CONTENT_WIDTH,
-                height: CANVAS_CONTENT_HEIGHT,
-                overflow: 'visible', 
-              }}
-              // Unique key to force re-render when node positions or colors change
-              key={`lines-svg-${allNodes.map(n => `${n.id}-${n.x}-${n.y}-${n.customBackgroundColor || ''}`).join()}`}
+            <div
+                ref={canvasContentRef}
+                className="relative" // This is where nodes are absolutely positioned.
+                style={{
+                    width: CANVAS_CONTENT_WIDTH,
+                    height: CANVAS_CONTENT_HEIGHT,
+                }}
+                onDrop={handleDrop} // Drop on the content div
+                onDragOver={handleDragOverCanvas} // Also need dragOver here for drop to work
             >
-              {allNodes.map(node => {
-                if (!node.parentId) return null;
-                const parentNode = mindmap.data.nodes[node.parentId];
-                if (!parentNode) return null;
+                {/* Render Nodes */}
+                {allNodes.map((node) => (
+                <NodeCard
+                    key={node.id}
+                    node={node}
+                    isRoot={!node.parentId}
+                    onEdit={handleEditNode}
+                    onDelete={requestDeleteNode}
+                    onAddChild={handleAddChildNode}
+                    onDragStart={handleNodeDragStart}
+                    className="node-card-draggable"
+                />
+                ))}
 
-                const startX = (parentNode.x ?? 0) + NODE_CARD_WIDTH / 2;
-                let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT / 2;
-                 if (parentNode.imageUrl && parentNode.customBackgroundColor) { // Check if image and custom color
-                    startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT; // Start line below header if image
-                } else if (parentNode.imageUrl) { // Only image
-                     startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT;
-                }
+                {/* Render Connecting Lines */}
+                <svg
+                className="absolute top-0 left-0 pointer-events-none"
+                style={{
+                    width: CANVAS_CONTENT_WIDTH,
+                    height: CANVAS_CONTENT_HEIGHT,
+                    overflow: 'visible',
+                }}
+                key={`lines-svg-${allNodes.map(n => `${n.id}-${n.x}-${n.y}-${n.customBackgroundColor || ''}`).join()}`}
+                >
+                {allNodes.map(node => {
+                    if (!node.parentId) return null;
+                    const parentNode = mindmap.data.nodes[node.parentId];
+                    if (!parentNode) return null;
+
+                    const startX = (parentNode.x ?? 0) + NODE_CARD_WIDTH / 2;
+                    let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT / 2;
+                    // Adjust startY if parent has an image, to draw line from below image area
+                    // if (parentNode.imageUrl) {
+                    //     startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT + (NODE_CARD_WIDTH * (9/16) / 2); // Approx center of image area
+                    // }
 
 
-                const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
-                const endY = (node.y ?? 0); 
+                    const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
+                    const endY = (node.y ?? 0);
 
-                const sCurveOffsetY = Math.max(20, Math.min(80, Math.abs(endY - startY) / 2));
-                const pathData = `M ${startX} ${startY} C ${startX} ${startY + sCurveOffsetY}, ${endX} ${endY - sCurveOffsetY}, ${endX} ${endY}`;
+                    const sCurveOffsetY = Math.max(20, Math.min(80, Math.abs(endY - startY) / 2));
+                    const pathData = `M ${startX} ${startY} C ${startX} ${startY + sCurveOffsetY}, ${endX} ${endY - sCurveOffsetY}, ${endX} ${endY}`;
 
-                let strokeColor = "hsl(var(--accent))"; // Default for child-to-child connection
-                if (parentNode.customBackgroundColor) {
-                    strokeColor = `hsl(var(--${parentNode.customBackgroundColor}))`;
-                } else if (!parentNode.parentId) { // Parent is a root node (no custom color)
-                    strokeColor = "hsl(var(--primary))";
-                }
+                    let strokeColor = "hsl(var(--accent))";
+                    if (parentNode.customBackgroundColor) {
+                        strokeColor = `hsl(var(--${parentNode.customBackgroundColor}))`;
+                    } else if (!parentNode.parentId) {
+                        strokeColor = "hsl(var(--primary))";
+                    }
 
-                return (
-                  <path
-                    key={`${parentNode.id}-${node.id}`}
-                    d={pathData}
-                    stroke={strokeColor}
-                    strokeWidth={2} 
-                    fill="none"
-                  />
-                );
-              })}
-            </svg>
+                    return (
+                    <path
+                        key={`${parentNode.id}-${node.id}`}
+                        d={pathData}
+                        stroke={strokeColor}
+                        strokeWidth={2}
+                        fill="none"
+                    />
+                    );
+                })}
+                </svg>
 
-            {allNodes.length === 0 && (
-              <div
-                className="absolute flex items-center justify-center pointer-events-none text-center inset-0"
-              >
-                <div className="text-muted-foreground text-lg bg-background/80 p-6 rounded-md shadow-lg">
-                    This mindmap is empty. Add a root idea to get started!
+                {allNodes.length === 0 && (
+                <div
+                    className="absolute flex items-center justify-center pointer-events-none text-center inset-0"
+                >
+                    <div className="text-muted-foreground text-lg bg-background/80 p-6 rounded-md shadow-lg">
+                        This mindmap is empty. Add a root idea to get started!
+                    </div>
                 </div>
-              </div>
-            )}
-          </div>
+                )}
+            </div>
         </div>
 
         {isEditDialogOpen && editingNode && (

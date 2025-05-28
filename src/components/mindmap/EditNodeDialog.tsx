@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { EditNodeInput, NodeData, PaletteColorKey } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2, ImageIcon, Palette } from 'lucide-react';
+import { Sparkles, Loader2, Palette } from 'lucide-react'; // ImageIcon removed
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -33,7 +33,7 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
-const NO_CUSTOM_COLOR_VALUE = "no-custom-color"; 
+const NO_CUSTOM_COLOR_VALUE = "no-custom-color";
 
 const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | typeof NO_CUSTOM_COLOR_VALUE; colorSample?: string }> = [
   { label: 'Default Theme', value: NO_CUSTOM_COLOR_VALUE },
@@ -48,7 +48,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  // const [imageUrl, setImageUrl] = useState(''); // Removed for this rollback
   const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | ''>('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
@@ -58,7 +58,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      setImageUrl(node.imageUrl || '');
+      // setImageUrl(node.imageUrl || ''); // Removed for this rollback
       setCustomBackgroundColor(node.customBackgroundColor || '');
     }
   }, [node]);
@@ -69,7 +69,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
+        // imageUrl: imageUrl.trim() || undefined, // Removed for this rollback
         customBackgroundColor: customBackgroundColor || undefined,
       });
       onOpenChange(false);
@@ -128,7 +128,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               onChange={(e) => setEmoji(e.target.value)}
               className="col-span-3"
               placeholder="✨ (Optional)"
-              maxLength={2} // Emojis can be 1 or 2 chars
+              maxLength={2}
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -165,20 +165,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="node-image-url" className="text-right">
-              <div className="flex items-center justify-end gap-1">
-                <ImageIcon className="h-4 w-4 text-muted-foreground" /> Image URL
-              </div>
-            </Label>
-            <Input
-              id="node-image-url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="col-span-3"
-              placeholder="https://placehold.co/300x150.png (Optional)"
-            />
-          </div>
+          {/* Image URL input removed for this rollback */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="node-bg-color" className="text-right">
               <div className="flex items-center justify-end gap-1">
@@ -205,7 +192,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                       {opt.colorSample && (
                         <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
                       )}
-                       {opt.value === NO_CUSTOM_COLOR_VALUE && ( // For default theme option
+                       {opt.value === NO_CUSTOM_COLOR_VALUE && (
                         <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
                       )}
                       {opt.label}
