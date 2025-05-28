@@ -10,19 +10,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 240 5.9% 90%; /* Default: SynapseSpark Indigo (Lightened for dark theme primary text) */
-    --primary-foreground: 240 5.9% 10%; /* Default: Darker for primary button text */
+    --primary: 243 77% 59%; /* Synapse Indigo */
+    --primary-foreground: 0 0% 98%; /* White text on Indigo */
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 260 70% 65%; /* Default: SynapseSpark Violet */
+    --accent: 256 86% 69%; /* Synapse Violet */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --ring: 240 5.9% 70%; /* Related to primary */
+    --ring: 243 77% 59%; /* Synapse Indigo for ring */
     --radius: 0.75rem;
 
     /* SynapseSpark Specific Palette */
@@ -31,8 +31,6 @@
     --synapse-light-gray: 220 13% 97%; /* #F9FAFB */
 
     /* Chart colors (Used for node palette) */
-    /* HSL values for --chart-N should be just the numbers, e.g., "243 77% 59%" */
-    /* -raw versions are for when Tailwind opacity shorthand can't be used with hsl(var()) */
     --chart-1-raw: 243 77% 59%; /* Indigo - Synapse Primary */
     --chart-1: var(--chart-1-raw);
     --chart-1-foreground: 0 0% 98%; /* White text for Indigo */
