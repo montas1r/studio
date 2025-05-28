@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -34,16 +33,25 @@
     /* Chart colors (Used for node palette) */
     /* HSL values for --chart-N should be just the numbers, e.g., "243 77% 59%" */
     /* -raw versions are for when Tailwind opacity shorthand can't be used with hsl(var()) */
-    --chart-1-raw: 243 77% 59%;
-    --chart-1: var(--chart-1-raw); /* Indigo - Synapse Primary */
-    --chart-2-raw: 340 80% 60%;
-    --chart-2: var(--chart-2-raw); /* Pink/Rose */
-    --chart-3-raw: 160 60% 45%;
-    --chart-3: var(--chart-3-raw); /* Teal/Green */
-    --chart-4-raw: 40 80% 55%;
-    --chart-4: var(--chart-4-raw);  /* Amber/Orange */
-    --chart-5-raw: 200 70% 50%;
-    --chart-5: var(--chart-5-raw); /* Sky Blue */
+    --chart-1-raw: 243 77% 59%; /* Indigo - Synapse Primary */
+    --chart-1: var(--chart-1-raw);
+    --chart-1-foreground: 0 0% 98%; /* White text for Indigo */
+    
+    --chart-2-raw: 340 80% 60%; /* Pink/Rose */
+    --chart-2: var(--chart-2-raw);
+    --chart-2-foreground: 0 0% 98%; /* White text for Pink/Rose */
+
+    --chart-3-raw: 160 60% 45%; /* Teal/Green */
+    --chart-3: var(--chart-3-raw);
+    --chart-3-foreground: 0 0% 98%; /* White text for Teal/Green */
+
+    --chart-4-raw: 40 80% 55%;  /* Amber/Orange */
+    --chart-4: var(--chart-4-raw);
+    --chart-4-foreground: 0 0% 10%;  /* Dark text for Amber/Orange */
+
+    --chart-5-raw: 200 70% 50%; /* Sky Blue */
+    --chart-5: var(--chart-5-raw);
+    --chart-5-foreground: 0 0% 10%;  /* Dark text for Sky Blue */
 
 
     /* Sidebar specific colors (if a sidebar were to be used) */
@@ -81,14 +89,23 @@
     /* Chart colors - Light theme adjustments */
     --chart-1-raw: 243 77% 59%;
     --chart-1: var(--chart-1-raw);  /* Indigo */
+    --chart-1-foreground: 0 0% 98%;
+
     --chart-2-raw: 340 70% 55%;
     --chart-2: var(--chart-2-raw); /* Pink/Rose */
+    --chart-2-foreground: 0 0% 98%;
+
     --chart-3-raw: 160 50% 40%;
     --chart-3: var(--chart-3-raw); /* Teal/Green */
+    --chart-3-foreground: 0 0% 98%;
+
     --chart-4-raw: 35 70% 50%;
     --chart-4: var(--chart-4-raw);  /* Amber/Orange */
+    --chart-4-foreground: 0 0% 10%;
+
     --chart-5-raw: 195 60% 45%;
     --chart-5: var(--chart-5-raw); /* Sky Blue */
+    --chart-5-foreground: 0 0% 10%;
 
      /* Sidebar specific colors - Light theme */
     --sidebar-background: 0 0% 97%;
