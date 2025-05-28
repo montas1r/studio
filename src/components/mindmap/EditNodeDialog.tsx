@@ -14,10 +14,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { EditNodeInput, NodeData } from '@/types/mindmap';
+import type { EditNodeInput, NodeData, PaletteColorKey } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
 import { Sparkles, Loader2, ImageIcon, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface EditNodeDialogProps {
   isOpen: boolean;
@@ -26,12 +33,21 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
+const PALETTE_OPTIONS: Array<{ label: string; value: PaletteColorKey | ''; colorSample?: string }> = [
+  { label: 'Default Theme', value: '' },
+  { label: 'Coral', value: 'chart-1', colorSample: 'hsl(var(--chart-1))' },
+  { label: 'Teal', value: 'chart-2', colorSample: 'hsl(var(--chart-2))' },
+  { label: 'Indigo', value: 'chart-3', colorSample: 'hsl(var(--chart-3))' },
+  { label: 'Amber', value: 'chart-4', colorSample: 'hsl(var(--chart-4))' },
+  { label: 'Pink', value: 'chart-5', colorSample: 'hsl(var(--chart-5))' },
+];
+
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [customBackgroundColor, setCustomBackgroundColor] = useState('');
+  const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | ''>('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -47,12 +63,12 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
 
   const handleSubmit = () => {
     if (node && title.trim()) {
-      onSave(node.id, { 
-        title, 
-        description, 
+      onSave(node.id, {
+        title,
+        description,
         emoji: emoji.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
-        customBackgroundColor: customBackgroundColor.trim() || undefined,
+        customBackgroundColor: customBackgroundColor || undefined,
       });
       onOpenChange(false);
     }
@@ -110,7 +126,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               onChange={(e) => setEmoji(e.target.value)}
               className="col-span-3"
               placeholder="✨ (Optional)"
-              maxLength={2} 
+              maxLength={2}
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -162,18 +178,34 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-             <Label htmlFor="node-bg-color" className="text-right">
-               <div className="flex items-center justify-end gap-1">
+            <Label htmlFor="node-bg-color" className="text-right">
+              <div className="flex items-center justify-end gap-1">
                 <Palette className="h-4 w-4 text-muted-foreground" /> BG Color
-               </div>
+              </div>
             </Label>
-            <Input
-              id="node-bg-color"
+            <Select
               value={customBackgroundColor}
-              onChange={(e) => setCustomBackgroundColor(e.target.value)}
-              className="col-span-3"
-              placeholder="e.g., #FF0000 or lightblue (Optional)"
-            />
+              onValueChange={(value) => setCustomBackgroundColor(value as PaletteColorKey | '')}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a color" />
+              </SelectTrigger>
+              <SelectContent>
+                {PALETTE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value || 'default'} value={opt.value}>
+                    <div className="flex items-center gap-2">
+                      {opt.colorSample && (
+                        <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: opt.colorSample }}></span>
+                      )}
+                       {!opt.colorSample && opt.label === 'Default Theme' && (
+                        <span className="inline-block w-4 h-4 rounded-full border bg-card"></span>
+                      )}
+                      {opt.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>

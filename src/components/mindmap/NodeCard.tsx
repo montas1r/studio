@@ -18,7 +18,6 @@ interface NodeCardProps {
   className?: string;
 }
 
-// Helper function to check for a valid HTTP/HTTPS URL
 function isValidHttpUrl(string?: string): boolean {
   if (!string) return false;
   try {
@@ -30,13 +29,14 @@ function isValidHttpUrl(string?: string): boolean {
 }
 
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
-  
+
   const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab";
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
-  
+
+  // Theme colors (fallbacks if no custom color)
   const rootNodeCardClasses = "bg-primary/10 border-primary";
   const rootNodeHeaderClasses = "bg-primary/20 text-primary-foreground";
-  
+
   const childNodeCardClasses = "bg-accent/10 border-accent";
   const childNodeHeaderClasses = "bg-accent/20 text-accent-foreground";
 
@@ -44,12 +44,26 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', 
+    width: '300px',
   };
 
+  let currentCardClasses = cardBaseClasses;
+  let currentHeaderClasses = headerBaseClasses;
+  let currentButtonTextClass = ""; // For button text color when custom bg is applied
+
   if (node.customBackgroundColor) {
-    cardStyle.backgroundColor = node.customBackgroundColor;
-    // Potentially adjust border or text color for contrast if needed, or rely on user to pick good contrasts
+    cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
+    // For custom backgrounds, we might want a neutral border, or derive it.
+    // For simplicity, let's use a slightly darker version of the custom color for the border if possible,
+    // or a generic border. For now, we'll use a standard border.
+    currentCardClasses = cn(cardBaseClasses, 'border-foreground/20'); // A neutral border for custom colors
+    // Header might need dynamic text color for contrast, for now, use card-foreground
+    currentHeaderClasses = cn(headerBaseClasses, 'bg-transparent'); // Make header transparent to show node's custom bg
+    currentButtonTextClass = "text-card-foreground dark:text-card-foreground"; // Ensure buttons are visible
+  } else {
+    currentCardClasses = cn(cardBaseClasses, isRoot ? rootNodeCardClasses : childNodeCardClasses);
+    currentHeaderClasses = cn(headerBaseClasses, isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses);
+    currentButtonTextClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
   }
 
   const shouldRenderImage = node.imageUrl && isValidHttpUrl(node.imageUrl);
@@ -57,30 +71,23 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(
-        cardBaseClasses,
-        !node.customBackgroundColor && (isRoot ? rootNodeCardClasses : childNodeCardClasses), // Apply theme color only if no custom color
-        className
-      )}
+      className={cn(currentCardClasses, className)}
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
     >
-      <div className={cn(
-        headerBaseClasses,
-        !node.customBackgroundColor && (isRoot ? rootNodeHeaderClasses : childNodeHeaderClasses) // Apply theme color only if no custom color
-      )}>
+      <div className={cn(currentHeaderClasses)}>
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
           {node.emoji && <span className="text-lg mr-1.5 flex-shrink-0">{node.emoji}</span>}
-          <h3 className="text-base font-semibold truncate" title={node.title}>
+          <h3 className={cn("text-base font-semibold truncate", node.customBackgroundColor ? 'text-card-foreground' : (isRoot ? 'text-primary-foreground' : 'text-accent-foreground'))} title={node.title}>
             {node.title}
           </h3>
         </div>
         <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
-          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className={cn("h-7 w-7", !node.customBackgroundColor && (isRoot ? "text-primary-foreground hover:bg-primary/30" : "text-accent-foreground hover:bg-accent/30"), node.customBackgroundColor && "text-card-foreground hover:bg-black/10 dark:hover:bg-white/10" )}>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className={cn("h-7 w-7", currentButtonTextClass, node.customBackgroundColor ? "hover:bg-black/10 dark:hover:bg-white/10" : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30"))}>
             <Edit3 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", !node.customBackgroundColor && (isRoot ? "text-primary-foreground hover:bg-primary/30" : "text-accent-foreground hover:bg-accent/30"), node.customBackgroundColor && "text-card-foreground hover:bg-black/10 dark:hover:bg-white/10")} aria-label="Add child node">
+          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", currentButtonTextClass, node.customBackgroundColor ? "hover:bg-black/10 dark:hover:bg-white/10" : (isRoot ? "hover:bg-primary/30" : "hover:bg-accent/30"))} aria-label="Add child node">
             <PlusCircle className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node" className={cn("h-7 w-7 text-destructive hover:bg-destructive/10")}>
@@ -88,18 +95,19 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
           </Button>
         </div>
       </div>
-      
+
       {shouldRenderImage && (
         <div className="relative w-full aspect-video overflow-hidden">
-          <Image 
-            src={node.imageUrl!} // We've checked node.imageUrl is valid and present
-            alt={`Image for ${node.title}`} 
-            layout="fill" 
-            objectFit="cover" 
-            onError={(e) => { 
-              (e.target as HTMLImageElement).style.display = 'none'; // Hide broken image icon
-              // Optionally, you could replace it with a placeholder div
-              const parent = (e.target as HTMLImageElement).parentElement;
+          <Image
+            src={node.imageUrl!}
+            alt={`Image for ${node.title}`}
+            fill // Replaced layout="fill" objectFit="cover" with fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example sizes, adjust as needed
+            style={{ objectFit: 'cover' }} // Replaced layout="fill" objectFit="cover" with fill
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
               if (parent) {
                 const placeholder = document.createElement('div');
                 placeholder.className = "w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs";
@@ -114,13 +122,14 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
 
       {node.description && (
         <div className={cn(
-            "p-3 text-sm rounded-b-xl", 
-            !node.customBackgroundColor && (isRoot ? "bg-primary/5" : "bg-accent/5"),
-            node.customBackgroundColor && "bg-transparent" // If custom bg, make this part transparent or use a subtle derived color
+            "p-3 text-sm rounded-b-xl flex-grow", // Added flex-grow for description
+             node.customBackgroundColor ? 'bg-transparent' : (isRoot ? "bg-primary/5" : "bg-accent/5")
         )}>
           <p className="whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed break-words">{node.description}</p>
         </div>
       )}
+      {/* Ensure card has min height if no description/image */}
+      {(!node.description && !shouldRenderImage) && <div className="min-h-[20px]"></div>}
     </div>
   );
 }

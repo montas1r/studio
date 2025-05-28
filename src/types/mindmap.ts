@@ -1,15 +1,17 @@
 
+export type PaletteColorKey = 'chart-1' | 'chart-2' | 'chart-3' | 'chart-4' | 'chart-5';
+
 export interface NodeData {
   id: string;
   title: string;
   description: string;
   emoji?: string;
-  imageUrl?: string; // New: For displaying an image
-  customBackgroundColor?: string; // New: For custom node background
+  imageUrl?: string;
+  customBackgroundColor?: PaletteColorKey; // Updated to use palette key
   parentId: string | null;
   childIds: string[];
-  x: number; // X coordinate on the canvas
-  y: number; // Y coordinate on the canvas
+  x: number;
+  y: number;
 }
 
 export interface NodesObject {
@@ -41,6 +43,5 @@ export interface EditNodeInput {
   description: string;
   emoji?: string;
   imageUrl?: string;
-  customBackgroundColor?: string;
+  customBackgroundColor?: PaletteColorKey | ''; // Allow empty string to clear
 }
-
