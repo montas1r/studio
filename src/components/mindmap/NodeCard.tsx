@@ -1,11 +1,12 @@
 
 "use client";
 
-import type { NodeData } from '@/types/mindmap';
+import type { NodeData } from '@/types/mindmap'; // PaletteColorKey removed
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image'; // Kept for potential future use but imageUrl removed from V1.0.0 NodeData
 
 interface NodeCardProps {
   node: NodeData;
@@ -35,23 +36,11 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  let descriptionBgClass = ""; 
-  let descriptionTextColorClass = "";
+  let descriptionBgClass = "bg-background/30"; // Simpler bg for V1.0.0
+  let descriptionTextColorClass = "text-foreground/90"; // Simpler text color for V1.0.0
 
-  const nodeColorVar = node.customBackgroundColor ? `--${node.customBackgroundColor}` : (isRoot ? '--primary' : '--accent');
-  const nodeColorRawVar = node.customBackgroundColor ? `--${node.customBackgroundColor}-raw` : (isRoot ? '--primary' : '--accent'); // Assume raw vars exist for primary/accent too or use a fallback
-  const nodeFgColorVar = node.customBackgroundColor ? `--${node.customBackgroundColor}-foreground` : (isRoot ? '--primary-foreground' : '--accent-foreground');
-
-  if (node.customBackgroundColor) {
-    cardStyle.backgroundColor = `hsl(var(${nodeColorVar}))`;
-    currentCardClasses = cn(currentCardClasses, `border-[hsl(var(${nodeColorVar}))]`);
-    headerTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]`;
-    buttonTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]`;
-    // Use a more generic hover that slightly darkens or lightens based on brightness, or a fixed subtle hover
-    buttonHoverBgClass = `hover:bg-black/10 dark:hover:bg-white/10`; 
-    descriptionBgClass = `bg-[hsla(var(${nodeColorRawVar},var(${nodeColorVar})),0.2)]`; // Use raw for opacity, 20% opacity
-    descriptionTextColorClass = `text-[hsl(var(${nodeFgColorVar}))]/90`; // Slightly less opacity than header
-  } else if (isRoot) {
+  // Simplified coloring for V1.0.0 - no customBackgroundColor from palette
+  if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/20 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/30");
     headerTextColorClass = "text-primary-foreground";
@@ -72,7 +61,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className, "node-card-draggable")} // Added node-card-draggable here
+      className={cn(currentCardClasses, className, "node-card-draggable")}
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
@@ -99,13 +88,15 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
             onClick={() => onDelete(node.id)} 
             aria-label="Delete node" 
             className={cn("h-7 w-7 hover:bg-destructive hover:text-destructive-foreground", 
-              node.customBackgroundColor ? buttonTextColorClass : (isRoot ? "text-primary-foreground" : "text-accent-foreground")
+              isRoot ? "text-primary-foreground" : "text-accent-foreground" // Simplified for V1.0.0
             )}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
+      
+      {/* Image display removed for V1.0.0 */}
 
       <div className={cn(
           "p-3 text-sm rounded-b-xl flex-grow",

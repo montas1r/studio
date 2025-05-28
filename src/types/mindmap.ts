@@ -15,8 +15,7 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  customBackgroundColor?: PaletteColorKey;
-  // No imageUrl in this version
+  // No customBackgroundColor or imageUrl in V1.0.0
 }
 
 export interface NodesObject {
@@ -47,5 +46,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  customBackgroundColor?: PaletteColorKey | ''; 
+  // No customBackgroundColor in V1.0.0
 }
