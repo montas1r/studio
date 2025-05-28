@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeCard } from './NodeCard';
 import { EditNodeDialog } from './EditNodeDialog';
-import { PlusCircle, Download, ArrowLeft, Home, Layers, Hand } from 'lucide-react';
+import { PlusCircle, Download, ArrowLeft, Home, Layers, Hand, ZoomIn, ZoomOut, LocateFixed } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -26,11 +26,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-
 const NODE_CARD_WIDTH = 300;
-const NODE_HEADER_HEIGHT = 50; 
-const CANVAS_CONTENT_WIDTH = '1200px'; 
+const NODE_HEADER_HEIGHT = 50;
+const CANVAS_CONTENT_WIDTH = '1200px';
 const CANVAS_CONTENT_HEIGHT = '1200px';
+const MIN_SCALE = 0.2;
+const MAX_SCALE = 2.0;
+const ZOOM_SENSITIVITY = 1.1;
+
 
 interface MindmapEditorProps {
   mindmapId: string;
@@ -46,21 +49,20 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const [newRootNodeDescription, setNewRootNodeDescription] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ id: string; title: string | undefined } | null>(null);
-  
+
   const { toast } = useToast();
 
-  const viewportContainerRef = useRef<HTMLDivElement>(null); 
-  const canvasContentRef = useRef<HTMLDivElement>(null); 
+  const viewportContainerRef = useRef<HTMLDivElement>(null);
+  const canvasContentRef = useRef<HTMLDivElement>(null);
 
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
-  // dragOffset is set via dataTransfer now, but kept in state for potential fallback or other uses.
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [scale, setScale] = useState<number>(1);
   const [activeTool, setActiveTool] = useState<'select' | 'pan'>('select');
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ mouseX: number, mouseY: number, initialPanX: number, initialPanY: number } | null>(null);
-
+  const [initialViewCentered, setInitialViewCentered] = useState(false);
 
   const handleAddRootNode = useCallback(async () => {
     if (newRootNodeTitle.trim() === '') {
@@ -69,7 +71,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     }
     if (!mindmap) return;
 
-    const defaultEmoji = '💡'; 
+    const defaultEmoji = '💡';
     const newNodeData: EditNodeInput = {
       title: newRootNodeTitle,
       description: newRootNodeDescription,
@@ -82,43 +84,39 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       setNewRootNodeDescription('');
       toast({ title: "Root Node Added", description: `"${newNode.title}" added to the mindmap.` });
       
+      // Recenter view to show the new node
       if (viewportContainerRef.current && newNode.x !== undefined && newNode.y !== undefined) {
         const viewportRect = viewportContainerRef.current.getBoundingClientRect();
-        // Calculate pan to center the new node.
-        // Target pan.x = (viewport width / 2) - node's logical x - (node width / 2)
-        // Target pan.y = (viewport height / 2) - node's logical y - (node height / 2) 
-        // Assuming node height is approx NODE_HEADER_HEIGHT * 2 for centering calculation
-        const targetX = viewportRect.width / 2 - newNode.x - NODE_CARD_WIDTH / 2;
-        const targetY = viewportRect.height / 2 - newNode.y - NODE_HEADER_HEIGHT ; 
+        const targetScale = 1; // Or calculate optimal scale if many nodes
+        const targetX = viewportRect.width / 2 - (newNode.x + NODE_CARD_WIDTH / 2) * targetScale;
+        const targetY = viewportRect.height / 2 - (newNode.y + NODE_HEADER_HEIGHT) * targetScale;
+        setScale(targetScale);
         setPan({ x: targetX, y: targetY });
       }
     }
-  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, setPan]);
+  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, setPan, setScale]);
 
   const handleAddChildNode = useCallback((parentId: string) => {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
 
-    // Initial position guess, will be refined by addNode in useMindmaps hook
-    const initialX = (parentNode.x ?? 0) + NODE_CARD_WIDTH + 30; 
+    const initialX = (parentNode.x ?? 0) + NODE_CARD_WIDTH + 30;
     const initialY = (parentNode.y ?? 0);
 
-
     const tempNewNode: NodeData = {
-      id: `temp-${uuidv4()}`, 
-      title: '', 
+      id: `temp-${uuidv4()}`,
+      title: '',
       description: "",
-      emoji: "➕", 
+      emoji: "➕",
       parentId: parentId,
       childIds: [],
-      x: initialX, 
+      x: initialX,
       y: initialY,
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
   }, [mindmap]);
-
 
   const handleEditNode = useCallback((node: NodeData) => {
     setEditingNode(node);
@@ -126,13 +124,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   }, []);
 
   const handleSaveNode = useCallback((nodeId: string, data: EditNodeInput) => {
-    if (!mindmap || !editingNode) return; 
-    if (editingNode.id.startsWith('temp-')) { 
+    if (!mindmap || !editingNode) return;
+    if (editingNode.id.startsWith('temp-')) {
       const permanentNode = addNode(mindmap.id, editingNode.parentId, data);
       if (permanentNode) {
         toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
       }
-    } else { 
+    } else {
       updateNode(mindmap.id, nodeId, data);
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
@@ -157,8 +155,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     setNodeToDelete(null);
   }, [mindmap, nodeToDelete, deleteNodeFromHook, toast]);
 
- const handleNodeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
-    if (activeTool === 'pan') { // Prevent node drag if pan tool is active
+  const handleNodeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, nodeId: string) => {
+    if (activeTool === 'pan') {
       event.preventDefault();
       return;
     }
@@ -166,21 +164,19 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!nodeElement) return;
 
     const nodeRect = nodeElement.getBoundingClientRect();
+    // Store logical offset (unscaled)
     const currentDragOffset = {
-      x: event.clientX - nodeRect.left,
-      y: event.clientY - nodeRect.top,
+      x: (event.clientX - nodeRect.left) / scale,
+      y: (event.clientY - nodeRect.top) / scale,
     };
-    setDragOffset(currentDragOffset); 
     event.dataTransfer.setData('application/json', JSON.stringify(currentDragOffset));
-
     setDraggedNodeId(nodeId);
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", nodeId); 
-  }, [activeTool]);
-
+    event.dataTransfer.setData("text/plain", nodeId);
+  }, [activeTool, scale]);
 
   const handleDragOverCanvas = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault(); 
+    event.preventDefault();
     if (draggedNodeId) {
       event.dataTransfer.dropEffect = "move";
     }
@@ -190,30 +186,25 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     event.preventDefault();
     if (!draggedNodeId || !mindmap || !viewportContainerRef.current) return;
 
-    let offsetX = dragOffset.x; 
-    let offsetY = dragOffset.y; 
-
+    let logicalDragOffset = { x: 0, y: 0 };
     try {
       const data = event.dataTransfer.getData('application/json');
       if (data) {
-        const parsedOffset = JSON.parse(data);
-        offsetX = parsedOffset.x;
-        offsetY = parsedOffset.y;
+        logicalDragOffset = JSON.parse(data);
       }
     } catch (e) {
-      console.error("Could not parse drag offset from dataTransfer, falling back to state:", e);
+      console.error("Could not parse drag offset from dataTransfer:", e);
     }
 
     const viewportRect = viewportContainerRef.current.getBoundingClientRect();
     
-    // Calculate new logical position accounting for pan
-    let newX = event.clientX - viewportRect.left - pan.x - offsetX;
-    let newY = event.clientY - viewportRect.top - pan.y - offsetY;
+    // Calculate new logical position accounting for pan and scale
+    const newX = (event.clientX - viewportRect.left - pan.x) / scale - logicalDragOffset.x;
+    const newY = (event.clientY - viewportRect.top - pan.y) / scale - logicalDragOffset.y;
     
     updateNodePosition(mindmap.id, draggedNodeId, newX, newY);
     setDraggedNodeId(null);
-  }, [draggedNodeId, mindmap, dragOffset, updateNodePosition, pan]);
-
+  }, [draggedNodeId, mindmap, updateNodePosition, pan, scale]);
 
   const handleExportJson = useCallback(() => {
     if (!mindmap) return;
@@ -227,7 +218,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handlePanMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (activeTool !== 'pan' || isPanning) return;
-    // Prevent panning if clicking directly on a node or its interactive elements
     if ((event.target as HTMLElement).closest('.node-card-draggable')) {
       return;
     }
@@ -239,9 +229,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       initialPanX: pan.x,
       initialPanY: pan.y,
     };
-    if (viewportContainerRef.current) {
-      viewportContainerRef.current.style.cursor = 'grabbing';
-    }
   }, [activeTool, isPanning, pan.x, pan.y]);
 
   const handlePanMouseMove = useCallback((event: MouseEvent) => {
@@ -259,61 +246,114 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (isPanning) {
       setIsPanning(false);
       panStartRef.current = null;
-      if (viewportContainerRef.current) {
-        viewportContainerRef.current.style.cursor = activeTool === 'pan' ? 'grab' : 'default';
-      }
     }
-  }, [isPanning, activeTool]);
+  }, [isPanning]);
+
+  const handleZoom = useCallback((zoomIn: boolean) => {
+    if (!viewportContainerRef.current) return;
+    const viewportRect = viewportContainerRef.current.getBoundingClientRect();
+    const viewportCenterX = viewportRect.width / 2;
+    const viewportCenterY = viewportRect.height / 2;
+
+    const newScale = zoomIn ? scale * ZOOM_SENSITIVITY : scale / ZOOM_SENSITIVITY;
+    const clampedNewScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+    // Point on canvas that was under the viewport center
+    const logicalPointX = (viewportCenterX - pan.x) / scale;
+    const logicalPointY = (viewportCenterY - pan.y) / scale;
+
+    // New pan to keep this logical point under the viewport center
+    const newPanX = viewportCenterX - logicalPointX * clampedNewScale;
+    const newPanY = viewportCenterY - logicalPointY * clampedNewScale;
+    
+    setScale(clampedNewScale);
+    setPan({ x: newPanX, y: newPanY });
+  }, [scale, pan]);
+
+  const handleRecenterView = useCallback(() => {
+    if (!mindmap || !viewportContainerRef.current) return;
+    const allNodesArray = Object.values(mindmap.data.nodes);
+    const viewportRect = viewportContainerRef.current.getBoundingClientRect();
+
+    if (allNodesArray.length === 0) {
+      setScale(1);
+      setPan({ 
+        x: viewportRect.width / 2, 
+        y: viewportRect.height / 2 
+      });
+      return;
+    }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    allNodesArray.forEach(node => {
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x + NODE_CARD_WIDTH); // Consider node width
+      maxY = Math.max(maxY, node.y + (node.description ? 150 : NODE_HEADER_HEIGHT + 20) ); // Approx height
+    });
+
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    if (contentWidth === 0 || contentHeight === 0) { // Single node or all nodes at same point
+      setScale(1);
+      setPan({
+        x: viewportRect.width / 2 - (minX + NODE_CARD_WIDTH / 2) * 1,
+        y: viewportRect.height / 2 - (minY + NODE_HEADER_HEIGHT) * 1,
+      });
+      return;
+    }
+    
+    const padding = 50; // px padding around content
+    const scaleX = (viewportRect.width - 2 * padding) / contentWidth;
+    const scaleY = (viewportRect.height - 2 * padding) / contentHeight;
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(scaleX, scaleY)));
+    
+    const contentCenterX = minX + contentWidth / 2;
+    const contentCenterY = minY + contentHeight / 2;
+
+    const newPanX = viewportRect.width / 2 - contentCenterX * newScale;
+    const newPanY = viewportRect.height / 2 - contentCenterY * newScale;
+
+    setScale(newScale);
+    setPan({ x: newPanX, y: newPanY });
+  }, [mindmap, setScale, setPan]);
+
 
   useEffect(() => {
     if (isPanning) {
       window.addEventListener('mousemove', handlePanMouseMove);
       window.addEventListener('mouseup', handlePanMouseUpOrLeave);
-      window.addEventListener('mouseleave', handlePanMouseUpOrLeave); // Handle mouse leaving window
+      window.addEventListener('mouseleave', handlePanMouseUpOrLeave);
     } else {
       window.removeEventListener('mousemove', handlePanMouseMove);
       window.removeEventListener('mouseup', handlePanMouseUpOrLeave);
       window.removeEventListener('mouseleave', handlePanMouseUpOrLeave);
     }
-    return () => { // Cleanup
+    return () => {
       window.removeEventListener('mousemove', handlePanMouseMove);
       window.removeEventListener('mouseup', handlePanMouseUpOrLeave);
       window.removeEventListener('mouseleave', handlePanMouseUpOrLeave);
     };
   }, [isPanning, handlePanMouseMove, handlePanMouseUpOrLeave]);
-  
-  // Effect to set cursor based on activeTool
+
   useEffect(() => {
     if (viewportContainerRef.current) {
       viewportContainerRef.current.style.cursor = activeTool === 'pan' ? (isPanning ? 'grabbing' : 'grab') : 'default';
     }
   }, [activeTool, isPanning]);
 
-  // Effect for initial centering when mindmap loads
   useEffect(() => {
-    if (mindmap && viewportContainerRef.current && mindmap.data.rootNodeIds.length > 0) {
-        const firstRootNodeId = mindmap.data.rootNodeIds[0];
-        const firstRootNode = mindmap.data.nodes[firstRootNodeId];
-        if (firstRootNode && firstRootNode.x !== undefined && firstRootNode.y !== undefined) {
-            const viewportRect = viewportContainerRef.current.getBoundingClientRect();
-            const targetX = viewportRect.width / 2 - firstRootNode.x - NODE_CARD_WIDTH / 2;
-            const targetY = viewportRect.height / 2 - firstRootNode.y - NODE_HEADER_HEIGHT; // Center based on header
-            
-            // Only pan to center if it hasn't been panned yet (or significantly)
-            // This avoids re-centering if the user has already started navigating
-            if (Math.abs(pan.x - targetX) > 5 || Math.abs(pan.y - targetY) > 5) {
-              // Check if pan state is at initial (0,0) before auto-panning,
-              // or if the current pan is significantly different from the target center.
-              // This avoids re-centering if the user has already panned.
-              // A more robust check might involve a flag like `initialViewCentered`.
-              if (pan.x === 0 && pan.y === 0) { 
-                 setPan({ x: targetX, y: targetY });
-              }
-            }
-        }
+    if (mindmap && !initialViewCentered) {
+      handleRecenterView();
+      setInitialViewCentered(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mindmapId]); // Rerun when mindmapId changes (new map loaded)
+  }, [mindmap, initialViewCentered, handleRecenterView]);
+  
+  // Reset initialViewCentered when mindmapId changes
+  useEffect(() => {
+    setInitialViewCentered(false);
+  }, [mindmapId]);
 
 
   if (!mindmap) {
@@ -328,27 +368,22 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       </div>
     );
   }
-  const allNodes = Object.values(mindmap.data.nodes);
-  const svgKey = allNodes.map(n => `${n.id}-${n.x}-${n.y}-${(n.childIds || []).join(',')}`).join('|');
 
+  const allNodes = Object.values(mindmap.data.nodes);
+  const svgKey = allNodes.map(n => `${n.id}-${n.x}-${n.y}-${(n.childIds || []).join(',')}-${scale}-${pan.x}-${pan.y}`).join('|');
 
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full flex-grow w-full">
-         <div className="p-2 border-b bg-background/95 backdrop-blur-sm sticky top-0 z-30 shadow-sm space-y-2">
+        <div className="p-2 border-b bg-background/90 backdrop-blur-sm space-y-2 flex-shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                    <Link href="/">
-                        <Home className="h-4 w-4" />
-                        <span className="sr-only">Back to Library</span>
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Back to Library</p></TooltipContent>
-              </Tooltip>
+               <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                <Link href="/">
+                    <Home className="h-4 w-4" />
+                    <span className="sr-only">Back to Library</span>
+                </Link>
+              </Button>
               <h1 className="text-xl font-semibold text-foreground truncate" title={mindmap.name}>
                 {mindmap.name}
               </h1>
@@ -358,27 +393,52 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                 </span>
               )}
             </div>
+
             <div className="flex items-center gap-1 flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={activeTool === 'pan' ? "secondary" : "ghost"}
+                    size="icon"
+                    onClick={() => setActiveTool(activeTool === 'pan' ? 'select' : 'pan')}
+                    className="h-8 w-8"
+                    aria-label="Toggle Pan Tool"
+                  >
+                    <Hand className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Pan Canvas (P)</p></TooltipContent>
+              </Tooltip>
                <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button 
-                        variant={activeTool === 'pan' ? "secondary" : "ghost"} 
-                        size="icon" 
-                        onClick={() => setActiveTool(activeTool === 'pan' ? 'select' : 'pan')}
-                        className="h-8 w-8"
-                        aria-label="Toggle Pan Tool"
-                    >
-                        <Hand className="h-4 w-4" />
-                    </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleZoom(true)} className="h-8 w-8">
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Pan Canvas (P)</p></TooltipContent> 
+                <TooltipContent><p>Zoom In</p></TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleExportJson} className="h-8 w-8">
-                        <Download className="h-4 w-4" />
-                        <span className="sr-only">Export JSON</span>
-                    </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleZoom(false)} className="h-8 w-8">
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Zoom Out</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleRecenterView} className="h-8 w-8">
+                    <LocateFixed className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Recenter View / Fit All</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleExportJson} className="h-8 w-8">
+                    <Download className="h-4 w-4" />
+                    <span className="sr-only">Export JSON</span>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Export JSON</p></TooltipContent>
               </Tooltip>
@@ -397,7 +457,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
               onChange={(e) => setNewRootNodeDescription(e.target.value)}
               placeholder="Description (Optional)"
               rows={1}
-              className="flex-grow text-sm min-h-[36px] h-9 resize-y max-h-24" 
+              className="flex-grow text-sm min-h-[36px] h-9 resize-y max-h-24"
             />
             <Button onClick={handleAddRootNode} size="sm" className="h-9 text-sm whitespace-nowrap px-3">
               <PlusCircle className="mr-1.5 h-4 w-4" /> Add Root Idea
@@ -406,95 +466,94 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         </div>
 
         <div
-          ref={viewportContainerRef} 
-          className="flex-grow relative bg-muted/20 min-h-[calc(100vh-180px)] overflow-hidden" // Key: overflow-hidden
-          onDragOver={handleDragOverCanvas} 
+          ref={viewportContainerRef}
+          className="flex-grow relative bg-muted/20 overflow-hidden" // Key: overflow-hidden
+          onDragOver={handleDragOverCanvas}
           onDrop={handleDropOnCanvas}
-          onMouseDown={handlePanMouseDown} // Attach pan mousedown here
+          onMouseDown={handlePanMouseDown}
         >
-            <div
-                ref={canvasContentRef} 
-                className="relative" 
-                style={{
-                    width: CANVAS_CONTENT_WIDTH, 
-                    height: CANVAS_CONTENT_HEIGHT,
-                    transform: `translate(${pan.x}px, ${pan.y}px)`,
-                    transformOrigin: '0 0',
-                }}
+          <div
+            ref={canvasContentRef}
+            className="relative"
+            style={{
+              width: CANVAS_CONTENT_WIDTH,
+              height: CANVAS_CONTENT_HEIGHT,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+              transformOrigin: '0 0',
+            }}
+          >
+            {allNodes.map((node) => (
+              <NodeCard
+                key={node.id}
+                node={node}
+                isRoot={!node.parentId}
+                onEdit={handleEditNode}
+                onDelete={requestDeleteNode}
+                onAddChild={handleAddChildNode}
+                onDragStart={(e, id) => handleNodeDragStart(e, id)}
+                className="node-card-draggable"
+              />
+            ))}
+
+            <svg
+              className="absolute top-0 left-0 pointer-events-none"
+              style={{
+                width: CANVAS_CONTENT_WIDTH,
+                height: CANVAS_CONTENT_HEIGHT,
+                overflow: 'visible', 
+              }}
+              key={svgKey}
             >
-                {allNodes.map((node) => (
-                <NodeCard
-                    key={node.id}
-                    node={node}
-                    isRoot={!node.parentId}
-                    onEdit={handleEditNode}
-                    onDelete={requestDeleteNode}
-                    onAddChild={handleAddChildNode}
-                    onDragStart={(e, id) => handleNodeDragStart(e, id)}
-                    className="node-card-draggable" // Ensure this class is on NodeCard for click detection
-                />
-                ))}
+              {allNodes.map(node => {
+                if (!node.parentId) return null;
+                const parentNode = mindmap.data.nodes[node.parentId];
+                if (!parentNode) return null;
 
-                <svg
-                    className="absolute top-0 left-0 pointer-events-none"
-                    style={{
-                        width: CANVAS_CONTENT_WIDTH, 
-                        height: CANVAS_CONTENT_HEIGHT,
-                        overflow: 'visible', 
-                    }}
-                    key={svgKey} 
-                >
-                {allNodes.map(node => {
-                    if (!node.parentId) return null;
-                    const parentNode = mindmap.data.nodes[node.parentId];
-                    if (!parentNode) return null;
+                const startX = (parentNode.x ?? 0) + NODE_CARD_WIDTH / 2;
+                let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT;
 
-                    const startX = (parentNode.x ?? 0) + NODE_CARD_WIDTH / 2;
-                    let startY = (parentNode.y ?? 0) + NODE_HEADER_HEIGHT; 
+                const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
+                const endY = (node.y ?? 0);
 
-                    const endX = (node.x ?? 0) + NODE_CARD_WIDTH / 2;
-                    const endY = (node.y ?? 0); 
+                const c1x = startX;
+                const c1y = startY + Math.max(20, Math.abs(endY - startY) / 2.5);
+                const c2x = endX;
+                const c2y = endY - Math.max(20, Math.abs(endY - startY) / 2.5);
 
-                    const c1x = startX;
-                    const c1y = startY + Math.max(20, Math.abs(endY - startY) / 2.5); 
-                    const c2x = endX;
-                    const c2y = endY - Math.max(20, Math.abs(endY - startY) / 2.5); 
-                    
-                    const pathData = `M ${startX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endX} ${endY}`;
-                    
-                    let strokeColor = "hsl(var(--accent))"; 
-                    if (!parentNode.parentId) { 
-                        strokeColor = "hsl(var(--primary))";
-                    }
+                const pathData = `M ${startX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endX} ${endY}`;
+                
+                let strokeColor = parentNode.customBackgroundColor
+                  ? `hsl(var(--${parentNode.customBackgroundColor}-raw, var(--${parentNode.customBackgroundColor})))`
+                  : (!parentNode.parentId ? "hsl(var(--primary))" : "hsl(var(--accent))");
 
-                    return (
-                    <path
-                        key={`${parentNode.id}-${node.id}`}
-                        d={pathData}
-                        stroke={strokeColor}
-                        strokeWidth="2"
-                        fill="none"
-                    />
-                    );
-                })}
-                </svg>
+                return (
+                  <path
+                    key={`${parentNode.id}-${node.id}`}
+                    d={pathData}
+                    stroke={strokeColor}
+                    strokeWidth={2 / scale} // Adjust stroke width based on scale
+                    fill="none"
+                  />
+                );
+              })}
+            </svg>
 
-                {allNodes.length === 0 && (
-                  <div
-                    className="absolute flex items-center justify-center pointer-events-none text-center"
-                     style={{
-                        top: '50%',
-                        left: '50%',
-                        // Center within the transformed canvas by offsetting by negative pan
-                        transform: `translate(calc(-50% - ${pan.x}px), calc(-50% - ${pan.y}px))`,
-                     }}
-                  >
-                    <div className="text-muted-foreground text-lg bg-background/80 p-6 rounded-md shadow-lg">
-                        This mindmap is empty. Add a root idea to get started!
-                    </div>
-                  </div>
-                )}
-            </div>
+            {allNodes.length === 0 && (
+              <div
+                className="absolute flex items-center justify-center pointer-events-none text-center"
+                style={{
+                  top: '50%',
+                  left: '50%',
+                  transform: `translate(calc(-50% - ${pan.x/scale}px), calc(-50% - ${pan.y/scale}px)) scale(${1/scale})`, // Adjust for pan and scale
+                  transformOrigin: 'center center',
+                }}
+              >
+                <div className="text-muted-foreground text-lg bg-background/80 p-6 rounded-md shadow-lg">
+                  This mindmap is empty. Add a root idea to get started!
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {isEditDialogOpen && editingNode && (
@@ -529,3 +588,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </TooltipProvider>
   );
 }
+
