@@ -2,21 +2,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput, PaletteColorKey } from '@/types/mindmap';
+import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput } from '@/types/mindmap';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
-// Fundamental constant for layout.
-const NODE_CARD_WIDTH = 300;
-
 export function useMindmaps() {
-  // Layout constants moved inside the hook
+  // Layout constants moved inside the hook for clarity and to ensure NODE_CARD_WIDTH is defined first
+  const NODE_CARD_WIDTH = 300; 
   const INITIAL_ROOT_X = 0;
   const INITIAL_ROOT_Y = 0;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50; 
   const CHILD_X_OFFSET = 0; 
-  const CHILD_Y_OFFSET = 180; 
-
+  const CHILD_Y_OFFSET = 180; // Approximate height of NodeCard + spacing
 
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,24 +54,24 @@ export function useMindmaps() {
             const siblingIndex = parentChildIds.indexOf(nodeId);
             
             const calculatedX = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + 
-                               (siblingIndex >= 0 ? siblingIndex * (NODE_CARD_WIDTH + 30) : 0);
+                               (siblingIndex >= 0 ? siblingIndex * (NODE_CARD_WIDTH + 30) : 0); // Basic horizontal spread for siblings
             const calculatedY = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
 
             newNodes[nodeId] = { ...node, x: calculatedX, y: calculatedY };
           } else if (!rootNodeIds.includes(nodeId)) { 
-            newNodes[nodeId] = { ...node, x: localCurrentRootX, y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2 };
+            // Orphaned node, place it like a new root for migration
+            newNodes[nodeId] = { ...node, x: localCurrentRootX, y: INITIAL_ROOT_Y + CHILD_Y_OFFSET * 2 }; // Place further down
             localCurrentRootX += ROOT_X_SPACING;
           }
         }
         
+        // Remove fields not in V1.0.0
         if ((node as any).imageUrl) { 
             delete (node as any).imageUrl;
             needsUpdate = true;
         }
-        
-        const validPaletteKeys: Array<PaletteColorKey | undefined> = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', undefined, '' as any];
-        if (node.customBackgroundColor && !validPaletteKeys.includes(node.customBackgroundColor)) {
-            delete node.customBackgroundColor;
+        if ((node as any).customBackgroundColor) {
+            delete (node as any).customBackgroundColor;
             needsUpdate = true;
         }
       });
@@ -90,7 +87,7 @@ export function useMindmaps() {
 
     setMindmaps(migratedMindmaps);
     setIsLoading(false);
-  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, ROOT_X_SPACING, INITIAL_ROOT_X, INITIAL_ROOT_Y]);
+  }, []); // Dependencies removed to match original simpler logic, relies on constants defined in hook scope
 
   useEffect(() => {
     if (!isLoading) {
@@ -148,14 +145,19 @@ export function useMindmaps() {
             const siblingCount = parentChildIds.length;
             x = (parentNode.x ?? INITIAL_ROOT_X) + CHILD_X_OFFSET + (siblingCount * (NODE_CARD_WIDTH + 30));
             y = (parentNode.y ?? INITIAL_ROOT_Y) + CHILD_Y_OFFSET;
-        } else {
+        } else { // Parent ID provided but parent not found, treat as new root for robustness
             let maxRootX = -Infinity;
-             currentRootNodeIds.forEach(rootId => {
-                const rNode = currentNodes[rootId];
-                if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
-            });
-            x = (maxRootX === -Infinity ? INITIAL_ROOT_X - ROOT_X_SPACING : maxRootX) + ROOT_X_SPACING;
-            y = INITIAL_ROOT_Y + CHILD_Y_OFFSET; 
+            if (currentRootNodeIds.length === 0) {
+              maxRootX = INITIAL_ROOT_X - ROOT_X_SPACING; 
+            } else {
+              currentRootNodeIds.forEach(rootId => {
+                  const rNode = currentNodes[rootId];
+                  if (rNode && rNode.x !== undefined) maxRootX = Math.max(maxRootX, rNode.x);
+              });
+            }
+            x = maxRootX + ROOT_X_SPACING;
+            y = INITIAL_ROOT_Y;
+            parentId = null; // Clear parentId as it's invalid
         }
     } else { 
         let maxRootX = -Infinity;
@@ -180,7 +182,7 @@ export function useMindmaps() {
       childIds: [],
       x,
       y,
-      customBackgroundColor: nodeDetails.customBackgroundColor === '' ? undefined : nodeDetails.customBackgroundColor,
+      // No customBackgroundColor or imageUrl in V1.0.0
     };
 
     const updatedNodes = { ...currentNodes, [newNodeId]: newNode };
@@ -193,12 +195,14 @@ export function useMindmaps() {
             childIds: [...(Array.isArray(parentNodeFromMap.childIds) ? parentNodeFromMap.childIds : []), newNodeId] 
         };
     } else if (!parentId) {
-      updatedRootNodeIds.push(newNodeId);
+      if (!updatedRootNodeIds.includes(newNodeId)) { // Ensure no duplicates if logic error occurs
+        updatedRootNodeIds.push(newNodeId);
+      }
     }
 
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, CHILD_X_OFFSET, CHILD_Y_OFFSET, ROOT_X_SPACING, INITIAL_ROOT_X, INITIAL_ROOT_Y]);
+  }, [getMindmapById, updateMindmap, NODE_CARD_WIDTH, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -210,7 +214,7 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      customBackgroundColor: updates.customBackgroundColor === '' ? undefined : updates.customBackgroundColor,
+      // No customBackgroundColor or imageUrl in V1.0.0
     };
 
     const updatedNodes = {

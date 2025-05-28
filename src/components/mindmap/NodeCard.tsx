@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image'; // Keep for V1.0.0 in case, but no imageUrl field for now
 
 interface NodeCardProps {
   node: NodeData;
@@ -14,11 +15,14 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
-  className?: string;
+  className?: string; // For node-card-draggable
 }
 
+// Approximate height for placeholder if description is empty but div exists
+const APPROX_MIN_DESC_BOX_HEIGHT = 10; // px
+
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
-  const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab transition-all duration-150 ease-out node-card-draggable";
+  const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab transition-all duration-150 ease-out";
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
   
   const cardStyle: React.CSSProperties = {
@@ -33,26 +37,19 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  let descriptionBgClass = "";
-  let descriptionTextColorClass = "text-foreground/80"; // Default text color for description
+  let descriptionBgClass = ""; // For description box
+  let descriptionTextColorClass = "text-foreground/80"; // Default
 
-  if (node.customBackgroundColor) {
-    cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-    currentCardClasses = cn(currentCardClasses, `border-[hsl(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})))]`);
-    headerTextColorClass = `text-[hsl(var(--${node.customBackgroundColor}-foreground,var(--foreground)))]`;
-    buttonTextColorClass = headerTextColorClass; 
-    buttonHoverBgClass = `hover:bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.2)]`;
-    descriptionBgClass = `bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.1)]`; // Lighter version of custom color
-    descriptionTextColorClass = headerTextColorClass; 
-
-  } else if (isRoot) {
+  // V1.0.0: No customBackgroundColor or PaletteColorKey
+  // Styling based purely on isRoot
+  if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/20 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/30");
     headerTextColorClass = "text-primary-foreground";
     buttonTextColorClass = "text-primary-foreground";
     buttonHoverBgClass = "hover:bg-primary/50";
-    descriptionBgClass = "bg-primary/10";
-    descriptionTextColorClass = "text-primary-foreground";
+    descriptionBgClass = "bg-primary/10"; 
+    descriptionTextColorClass = "text-primary-foreground/90";
   } else {
     currentCardClasses = cn(currentCardClasses, "bg-accent/20 border-accent");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/30");
@@ -60,7 +57,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
     buttonTextColorClass = "text-accent-foreground";
     buttonHoverBgClass = "hover:bg-accent/50";
     descriptionBgClass = "bg-accent/10";
-    descriptionTextColorClass = "text-accent-foreground";
+    descriptionTextColorClass = "text-accent-foreground/90";
   }
   
   return (
@@ -87,10 +84,16 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
           <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", buttonTextColorClass, buttonHoverBgClass)} aria-label="Add child node">
             <PlusCircle className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} aria-label="Delete node" 
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => onDelete(node.id)} 
+            aria-label="Delete node" 
             className={cn("h-7 w-7", 
-              node.customBackgroundColor ? buttonTextColorClass : "text-destructive", 
-              node.customBackgroundColor ? buttonHoverBgClass : "hover:text-destructive-foreground hover:bg-destructive/80"
+              isRoot ? "text-primary-foreground hover:bg-destructive hover:text-destructive-foreground" : "text-accent-foreground hover:bg-destructive hover:text-destructive-foreground",
+              // Fallback if custom color logic was here:
+              // node.customBackgroundColor ? buttonTextColorClass : "text-destructive", 
+              // node.customBackgroundColor ? buttonHoverBgClass : "hover:text-destructive-foreground hover:bg-destructive/80"
             )}
           >
             <Trash2 className="h-4 w-4" />
@@ -98,16 +101,21 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
 
-      {node.description && (
-        <div className={cn(
-            "p-3 text-sm rounded-b-xl flex-grow",
-            descriptionBgClass, 
-            descriptionTextColorClass
-        )}>
+      {/* V1.0.0: No imageUrl display logic */}
+
+      {/* Description box always present, even if empty, for consistent height if styled with min-height */}
+      <div className={cn(
+          "p-3 text-sm rounded-b-xl flex-grow",
+          descriptionBgClass, 
+          descriptionTextColorClass,
+          !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]` // Ensure min height if description is empty
+      )}>
+        {node.description ? (
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
-        </div>
-      )}
-      {!node.description && <div className={cn("min-h-[10px] rounded-b-xl", descriptionBgClass)} ></div>}
+        ) : (
+          <div className="h-full"></div> // Ensures the div takes up space for min-height
+        )}
+      </div>
     </div>
   );
 }
