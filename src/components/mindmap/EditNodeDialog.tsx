@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,7 +57,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setEmoji(node.emoji || '');
       setCustomBackgroundColor(node.customBackgroundColor || '');
     } else {
-      // Reset for new node creation if node becomes null
       setTitle('');
       setDescription('');
       setEmoji('');

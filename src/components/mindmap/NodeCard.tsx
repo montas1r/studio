@@ -33,31 +33,34 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-
-  // Force light theme for description box for readability
-  const descriptionBgClass = "bg-slate-50"; 
-  const descriptionTextColorClass = "text-slate-700"; 
+  let descriptionBgClass = "";
+  let descriptionTextColorClass = "text-foreground/80"; // Default text color for description
 
   if (node.customBackgroundColor) {
     cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
     currentCardClasses = cn(currentCardClasses, `border-[hsl(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})))]`);
     headerTextColorClass = `text-[hsl(var(--${node.customBackgroundColor}-foreground,var(--foreground)))]`;
-    buttonTextColorClass = headerTextColorClass;
-    buttonHoverBgClass = `hover:bg-[hsla(var(--${node.customBackgroundColor}-foreground,var(--foreground)),0.1)]`;
-    
-    // Description box remains light themed even with custom node color
+    buttonTextColorClass = headerTextColorClass; 
+    buttonHoverBgClass = `hover:bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.2)]`;
+    descriptionBgClass = `bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.1)]`; // Lighter version of custom color
+    descriptionTextColorClass = headerTextColorClass; 
+
   } else if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary/20 border-primary");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/30");
     headerTextColorClass = "text-primary-foreground";
     buttonTextColorClass = "text-primary-foreground";
     buttonHoverBgClass = "hover:bg-primary/50";
+    descriptionBgClass = "bg-primary/10";
+    descriptionTextColorClass = "text-primary-foreground";
   } else {
     currentCardClasses = cn(currentCardClasses, "bg-accent/20 border-accent");
     currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/30");
     headerTextColorClass = "text-accent-foreground";
     buttonTextColorClass = "text-accent-foreground";
     buttonHoverBgClass = "hover:bg-accent/50";
+    descriptionBgClass = "bg-accent/10";
+    descriptionTextColorClass = "text-accent-foreground";
   }
   
   return (
@@ -99,7 +102,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         <div className={cn(
             "p-3 text-sm rounded-b-xl flex-grow",
             descriptionBgClass, 
-            descriptionTextColorClass 
+            descriptionTextColorClass
         )}>
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         </div>

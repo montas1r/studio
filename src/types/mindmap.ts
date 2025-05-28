@@ -15,7 +15,7 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  customBackgroundColor?: PaletteColorKey; 
+  customBackgroundColor?: PaletteColorKey;
   // No imageUrl in v1.0.2
 }
 
