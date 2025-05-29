@@ -1,12 +1,11 @@
 
 "use client";
 
-import type { NodeData, PaletteColorKey } from '@/types/mindmap';
+import type { NodeData } from '@/types/mindmap'; // Removed PaletteColorKey import
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image'; // Keep for potential future use, but not used in v0.0.5 logic
 
 const APPROX_MIN_DESC_BOX_HEIGHT = 20; 
 
@@ -19,26 +18,7 @@ interface NodeCardProps {
   className?: string;
 }
 
-// Helper to determine text color contrast.
-// This is a simplified version. For perfect contrast, a more sophisticated algorithm is needed.
-function getContrastingTextColor(backgroundColorVar?: PaletteColorKey): string {
-  if (!backgroundColorVar) return "text-primary-foreground"; // Default for primary/accent
-
-  // Based on the chart colors in globals.css (dark/light text needs)
-  switch (backgroundColorVar) {
-    case 'chart-1': // Indigo
-    case 'chart-2': // Rose
-    case 'chart-3': // Teal
-      return "text-primary-foreground"; // White/light text
-    case 'chart-4': // Amber
-    case 'chart-5': // Sky Blue
-      return "text-foreground"; // Dark text (primary foreground of light theme)
-    default:
-      return "text-primary-foreground";
-  }
-}
-
-
+// No getContrastingTextColor needed for v0.0.5 as it uses theme defaults
 export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
   const isRoot = !node.parentId;
   const cardBaseClasses = "rounded-xl shadow-xl flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden border-2";
@@ -56,51 +36,30 @@ export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, clas
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  let descriptionBgClass = "";
+  let descriptionBgClass = ""; // For theme-based light description bg
 
-  const cardStyle: React.CSSProperties = { ...cardPositionStyle };
-
-  if (node.customBackgroundColor) {
-    cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-    currentCardClasses = cn(currentCardClasses, `border-[hsl(var(--${node.customBackgroundColor}))]`); // Border matches background
-    currentHeaderClasses = cn(currentHeaderClasses); // Header bg is same as card bg
-    
-    headerTextColorClass = getContrastingTextColor(node.customBackgroundColor);
-    buttonTextColorClass = headerTextColorClass; // Buttons use same contrasting text
-    // Create a slightly darker hover for custom backgrounds by reducing lightness or adding opacity
-    // This is a simplification; a proper HSL manipulation library would be better.
-    // For now, we'll just use a generic darker semi-transparent overlay for hover.
-    buttonHoverBgClass = "hover:bg-black/10 dark:hover:bg-white/10";
-
-    // Description box with lighter version of custom background
-    // We need the -raw value for HSLA if available, otherwise use the main color.
-    // Assuming chart colors have a -raw variant like in some themes.
-    const colorVar = `var(--${node.customBackgroundColor}-raw, var(--${node.customBackgroundColor}))`;
-    descriptionBgClass = `bg-[hsla(${colorVar},0.1)]`; // 10% opacity
-
+  // v0.0.5 uses theme-based colors, no customBackgroundColor logic here for the main node
+  if (isRoot) {
+    currentCardClasses = cn(currentCardClasses, "bg-primary border-primary");
+    currentHeaderClasses = cn(currentHeaderClasses, "bg-primary");
+    headerTextColorClass = "text-primary-foreground";
+    buttonTextColorClass = "text-primary-foreground";
+    buttonHoverBgClass = "hover:bg-primary/80";
+    descriptionBgClass = "bg-primary/10 dark:bg-primary/20"; // Lighter version of primary
   } else {
-    if (isRoot) {
-      currentCardClasses = cn(currentCardClasses, "bg-primary border-primary");
-      currentHeaderClasses = cn(currentHeaderClasses, "bg-primary");
-      headerTextColorClass = "text-primary-foreground";
-      buttonTextColorClass = "text-primary-foreground";
-      buttonHoverBgClass = "hover:bg-primary/80";
-      descriptionBgClass = "bg-primary/10"; // Lighter version of primary
-    } else {
-      currentCardClasses = cn(currentCardClasses, "bg-accent border-accent");
-      currentHeaderClasses = cn(currentHeaderClasses, "bg-accent");
-      headerTextColorClass = "text-accent-foreground";
-      buttonTextColorClass = "text-accent-foreground";
-      buttonHoverBgClass = "hover:bg-accent/80";
-      descriptionBgClass = "bg-accent/10"; // Lighter version of accent
-    }
+    currentCardClasses = cn(currentCardClasses, "bg-accent border-accent");
+    currentHeaderClasses = cn(currentHeaderClasses, "bg-accent");
+    headerTextColorClass = "text-accent-foreground";
+    buttonTextColorClass = "text-accent-foreground";
+    buttonHoverBgClass = "hover:bg-accent/80";
+    descriptionBgClass = "bg-accent/10 dark:bg-accent/20"; // Lighter version of accent
   }
   
   return (
     <div
       id={`node-${node.id}`}
-      className={cn(currentCardClasses, className)}
-      style={cardStyle}
+      className={cn(currentCardClasses, className, "node-card-draggable")} // Added node-card-draggable
+      style={cardPositionStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => e.stopPropagation()} 
@@ -132,11 +91,11 @@ export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, clas
         </div>
       </div>
       
-      {/* Description Box Styling */}
+      {/* Description Box Styling - v0.0.5 uses theme-derived lighter background */}
       <div className={cn(
           "p-3 flex-grow", 
-          descriptionBgClass, // Applied dynamic or theme-based light background
-          headerTextColorClass, // Text color should contrast with the descriptionBg
+          descriptionBgClass, 
+          headerTextColorClass, // Text color should contrast with descriptionBg (theme-based foregrounds)
           !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]`
       )}>
         {node.description ? (
