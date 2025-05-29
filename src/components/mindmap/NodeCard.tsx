@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image'; // Keep for future use if imageUrl is re-added
 
-const APPROX_MIN_DESC_BOX_HEIGHT = 10;
+const APPROX_MIN_DESC_BOX_HEIGHT = 10; // Approximate min height for an empty description box.
 
 interface NodeCardProps {
   node: NodeData;
@@ -22,54 +21,43 @@ interface NodeCardProps {
 
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
   const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab transition-all duration-150 ease-out overflow-hidden";
-  const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl"; // No, rounded-t-lg here, keep it related to card's xl
+  const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
 
   const cardStyle: React.CSSProperties = {
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px',
+    width: '300px', // Fixed width
   };
 
   let currentCardClasses = cardBaseClasses;
   let currentHeaderClasses = headerBaseClasses;
-  let headerTextColorClass = ""; // Will be determined by theme or custom bg
-  let buttonTextColorClass = ""; // Will be determined by theme or custom bg
-  let buttonHoverBgClass = "";  // Will be determined by theme or custom bg
-  
-  // Fixed light theme for description box
-  const descriptionBgClass = "bg-slate-100 dark:bg-slate-50"; 
-  const descriptionTextColorClass = "text-slate-700 dark:text-slate-800";
+  let headerTextColorClass = "";
+  let buttonTextColorClass = "";
+  let buttonHoverBgClass = "";
+  let descriptionBgClass = "";
+  let descriptionTextColorClass = "text-foreground"; // Default for description text
 
-  let borderColorClass = "";
-
-  if (node.customBackgroundColor) {
-    cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-    borderColorClass = `border-[hsl(var(--${node.customBackgroundColor}))]`;
-    // Determine foreground color based on the palette's definition in globals.css
-    // This assumes variables like --chart-1-foreground exist
-    headerTextColorClass = `text-[hsl(var(--${node.customBackgroundColor}-foreground,var(--foreground)))]`;
-    buttonTextColorClass = headerTextColorClass; // Buttons use same color as header text
-    // For hover, we can try to make it slightly darker or use a generic overlay
-    buttonHoverBgClass = `hover:bg-[hsla(var(--${node.customBackgroundColor}-raw,var(--${node.customBackgroundColor})),0.8)]`; 
+  if (isRoot) {
+    currentCardClasses = cn(currentCardClasses, "bg-primary border-primary");
+    currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/80"); // Slightly more opaque for header
+    headerTextColorClass = "text-primary-foreground";
+    buttonTextColorClass = "text-primary-foreground";
+    buttonHoverBgClass = "hover:bg-primary/60"; // Darken hover slightly
+    descriptionBgClass = "bg-primary/10"; // Lighter, translucent version for description
   } else {
-    if (isRoot) {
-      currentCardClasses = cn(currentCardClasses, "bg-primary/20");
-      borderColorClass = "border-primary";
-      currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/30");
-      headerTextColorClass = "text-primary-foreground";
-      buttonTextColorClass = "text-primary-foreground";
-      buttonHoverBgClass = "hover:bg-primary/50";
-    } else {
-      currentCardClasses = cn(currentCardClasses, "bg-accent/20");
-      borderColorClass = "border-accent";
-      currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/30");
-      headerTextColorClass = "text-accent-foreground";
-      buttonTextColorClass = "text-accent-foreground";
-      buttonHoverBgClass = "hover:bg-accent/50";
-    }
+    currentCardClasses = cn(currentCardClasses, "bg-accent border-accent");
+    currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/80"); // Slightly more opaque
+    headerTextColorClass = "text-accent-foreground";
+    buttonTextColorClass = "text-accent-foreground";
+    buttonHoverBgClass = "hover:bg-accent/60";
+    descriptionBgClass = "bg-accent/10"; // Lighter, translucent version
   }
-  currentCardClasses = cn(currentCardClasses, borderColorClass);
+  
+  // For v0.0.5, description box is always a light, translucent version of the node's theme color
+  // The text color for description should generally be dark for readability on light backgrounds.
+  // If theme foreground is light (typical in dark themes), we might need specific dark text for description.
+  descriptionTextColorClass = "text-foreground/80"; // Slightly less prominent than main text
 
 
   return (
@@ -79,8 +67,8 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
       style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()} // Prevent click from bubbling to canvas if card is clicked
+      onMouseDown={(e) => e.stopPropagation()} // Prevent mousedown for panning if card is clicked
     >
       <div className={cn(currentHeaderClasses)}>
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -101,49 +89,25 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
             size="icon"
             onClick={() => onDelete(node.id)}
             aria-label="Delete node"
-            className={cn("h-7 w-7 hover:bg-destructive hover:text-destructive-foreground", buttonTextColorClass)} // Use specific text color
+            className={cn("h-7 w-7 hover:bg-destructive hover:text-destructive-foreground", buttonTextColorClass)} // Keep specific destructive hover
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Image display (if imageUrl is ever re-added to NodeData)
-      {node.imageUrl && isValidHttpUrl(node.imageUrl) && (
-        <div className="relative w-full aspect-video overflow-hidden bg-muted/30">
-          <Image
-            src={node.imageUrl}
-            alt={`Image for ${node.title}`}
-            layout="fill"
-            objectFit="cover"
-            onError={() => console.warn("Failed to load image:", node.imageUrl)}
-          />
-        </div>
-      )} */}
-
       <div className={cn(
-          "p-3 text-sm rounded-b-xl flex-grow", // rounded-b-xl to match card
-          descriptionBgClass,
+          "p-3 text-sm rounded-b-xl flex-grow",
+          descriptionBgClass, 
           descriptionTextColorClass,
           !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]`
       )}>
         {node.description ? (
           <p className="whitespace-pre-wrap text-xs leading-relaxed break-words">{node.description}</p>
         ) : (
-          <div className="h-full"></div>
+          <div className="h-full"></div> 
         )}
       </div>
     </div>
   );
 }
-
-// Helper to check for valid http/https URL (basic check)
-// function isValidHttpUrl(string: string) {
-//   let url;
-//   try {
-//     url = new URL(string);
-//   } catch (_) {
-//     return false;
-//   }
-//   return url.protocol === "http:" || url.protocol === "https:";
-// }

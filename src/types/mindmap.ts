@@ -15,7 +15,7 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  customBackgroundColor?: PaletteColorKey; // Added for custom node color
+  // customBackgroundColor?: PaletteColorKey; // This was for palette coloring, removed for v0.0.5 base
 }
 
 export interface NodesObject {
@@ -46,5 +46,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  customBackgroundColor?: PaletteColorKey | 'no-custom-color'; // Added for custom node color selection
+  // customBackgroundColor?: PaletteColorKey | 'no-custom-color'; // This was for palette coloring, removed for v0.0.5 base
 }
