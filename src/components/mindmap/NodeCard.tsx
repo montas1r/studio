@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
+// No Image import in v0.0.5
 
-const APPROX_MIN_DESC_BOX_HEIGHT = 20; // Adjusted for potentially larger base text
+const APPROX_MIN_DESC_BOX_HEIGHT = 20; 
 
 interface NodeCardProps {
   node: NodeData;
@@ -20,16 +20,7 @@ interface NodeCardProps {
   className?: string;
 }
 
-function isValidHttpUrl(string?: string) {
-  if (!string) return false;
-  let url;
-  try {
-    url = new URL(string);
-  } catch (_) {
-    return false;
-  }
-  return url.protocol === "http:" || url.protocol === "https:";
-}
+// No isValidHttpUrl needed in v0.0.5
 
 export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
   const cardBaseClasses = "rounded-xl shadow-xl w-[300px] flex flex-col border-2 cursor-grab transition-all duration-150 ease-out overflow-hidden";
@@ -39,54 +30,34 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', // Fixed width
+    width: '300px', 
   };
   
-  // if (node.customBackgroundColor) {
-  //   cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-  // }
-
-
   let currentCardClasses = cardBaseClasses;
   let currentHeaderClasses = headerBaseClasses;
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  let descriptionBgClass = "bg-slate-50"; // Always light for readability as per last request
-  let descriptionTextColorClass = "text-slate-700"; // Always dark for readability
+  let descriptionBgClass = ""; 
+  let descriptionTextColorClass = "text-foreground"; // Default description text color
 
-  // Default theme based styling (v0.0.5 base)
   if (isRoot) {
     currentCardClasses = cn(currentCardClasses, "bg-primary border-primary");
-    currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/80");
+    currentHeaderClasses = cn(currentHeaderClasses, "bg-primary/80"); // Slightly more opaque for header
     headerTextColorClass = "text-primary-foreground";
     buttonTextColorClass = "text-primary-foreground";
     buttonHoverBgClass = "hover:bg-primary/60";
+    descriptionBgClass = "bg-primary/10"; // Lighter, translucent version for v0.0.5
   } else {
     currentCardClasses = cn(currentCardClasses, "bg-accent border-accent");
-    currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/80");
+    currentHeaderClasses = cn(currentHeaderClasses, "bg-accent/80"); // Slightly more opaque for header
     headerTextColorClass = "text-accent-foreground";
     buttonTextColorClass = "text-accent-foreground";
     buttonHoverBgClass = "hover:bg-accent/60";
+    descriptionBgClass = "bg-accent/10"; // Lighter, translucent version for v0.0.5
   }
   
-  // Override with custom color if available (from v0.0.5 + custom color step)
-  // if (node.customBackgroundColor) {
-  //   cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-  //   currentCardClasses = cn(cardBaseClasses, `border-[hsl(var(--${node.customBackgroundColor}))]`); // Use Tailwind JIT for border
-    
-  //   // Attempt to set contrasting button text color for custom backgrounds
-  //   // This is a heuristic and might not be perfect for all custom colors.
-  //   // For a robust solution, one might need a library to calculate luminance and contrast.
-  //   const customColorVar = `--${node.customBackgroundColor}`;
-  //   // Assuming HSL: if L > 50%, it's a light color, use dark text. Otherwise, use light text.
-  //   // This is a very rough approximation. Proper contrast calculation is complex.
-  //   // For now, we'll default to a generally safe option or let the theme's foreground handle it.
-  //   // headerTextColorClass = "text-card-foreground"; // Rely on card-foreground from theme for custom
-  //   // buttonTextColorClass = "text-card-foreground";
-  //   // buttonHoverBgClass = "hover:bg-black/10"; // Generic hover for custom bg
-  // }
-
+  // No node.customBackgroundColor logic in v0.0.5
 
   return (
     <div
@@ -101,7 +72,7 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
       <div className={cn(currentHeaderClasses)}>
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
           {node.emoji && <span className="text-xl mr-1.5 flex-shrink-0 select-none">{node.emoji}</span>}
-          <h3 className={cn("text-lg font-semibold truncate", headerTextColorClass)} title={node.title}> {/* Increased title size from text-base to text-lg */}
+          <h3 className={cn("text-lg font-semibold truncate", headerTextColorClass)} title={node.title}>
             {node.title}
           </h3>
         </div>
@@ -124,27 +95,16 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
         </div>
       </div>
 
-      {/* Image display - currently not part of v0.0.5 base */}
-      {/* {node.imageUrl && isValidHttpUrl(node.imageUrl) && (
-        <div className="relative w-full aspect-video overflow-hidden bg-muted/30">
-          <Image 
-            src={node.imageUrl} 
-            alt={`Image for ${node.title}`} 
-            layout="fill" 
-            objectFit="contain" 
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none';}} // Simple hide on error
-          />
-        </div>
-      )} */}
+      {/* No Image display in v0.0.5 */}
 
       <div className={cn(
-          "p-3 flex-grow", // removed text-sm from here
+          "p-3 flex-grow", 
           descriptionBgClass, 
           descriptionTextColorClass,
           !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]`
       )}>
         {node.description ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{node.description}</p> /* Increased description size from text-xs to text-sm */
+          <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{node.description}</p>
         ) : (
           <div className="h-full"></div> 
         )}
