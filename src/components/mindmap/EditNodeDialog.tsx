@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,10 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-// No Select for v0.0.5 color palette
 import type { EditNodeInput, NodeData } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2 } from 'lucide-react'; // Removed Palette icon
+import { Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EditNodeDialogProps {
@@ -31,7 +30,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  // No customBackgroundColor state for v0.0.5
+  const [customBackgroundColor, setCustomBackgroundColor] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -40,12 +39,13 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      // No customBackgroundColor logic for v0.0.5
+      setCustomBackgroundColor(node.customBackgroundColor || '');
     } else {
+      // Reset fields if node is null (e.g., when dialog closes)
       setTitle('');
       setDescription('');
       setEmoji('');
-      // No customBackgroundColor logic for v0.0.5
+      setCustomBackgroundColor('');
     }
   }, [node]);
 
@@ -55,9 +55,9 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        // No customBackgroundColor logic for v0.0.5
+        customBackgroundColor: customBackgroundColor.trim() || undefined,
       });
-      onOpenChange(false);
+      onOpenChange(false); // Close dialog on save
     }
   };
 
@@ -150,7 +150,18 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          {/* No Node Color Select for v0.0.5 */}
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="node-bgcolor" className="text-right">
+              Node Color
+            </Label>
+            <Input
+              id="node-bgcolor"
+              value={customBackgroundColor}
+              onChange={(e) => setCustomBackgroundColor(e.target.value)}
+              className="col-span-3"
+              placeholder="HSL (e.g., 210 80% 60%)"
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

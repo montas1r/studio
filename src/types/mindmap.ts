@@ -17,7 +17,8 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  // No customBackgroundColor or customBorderColor in v0.0.5, styling is theme-based
+  customBackgroundColor?: string; // Stores HSL values like "210 80% 60%"
+  // No customBorderColor in v0.0.5, styling is theme-based
 }
 
 export interface NodesObject {
@@ -48,5 +49,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  // No custom color properties in v0.0.5
+  customBackgroundColor?: string; // Stores HSL values like "210 80% 60%" or empty string to clear
 }

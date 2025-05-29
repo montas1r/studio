@@ -7,35 +7,37 @@ import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorag
 import { v4 as uuidv4 } from 'uuid';
 
 export function useMindmaps() {
+  // Constants moved inside the hook to ensure initialization order
   const NODE_CARD_WIDTH = 300;
-  const LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT = 5000; // Matches MindmapEditor's canvas size
-  const Y_OFFSET_FOR_FIRST_ROOT = 100; // Y offset for first root from v0.0.3
+  const LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT = 2000; // Default canvas size
+  const Y_OFFSET_FOR_FIRST_ROOT = 100;
+  const INITIAL_ROOT_X = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+  const INITIAL_ROOT_Y = Y_OFFSET_FOR_FIRST_ROOT;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
-  const CHILD_X_OFFSET = 0; 
-  const CHILD_Y_OFFSET = 180; // Approx height of a node card + spacing
+  const CHILD_X_OFFSET = 0;
+  const CHILD_Y_OFFSET = 180;
+
 
   const getApproxNodeHeight = useCallback((node: Partial<NodeData> | null): number => {
     if (!node) return 120; // Default height for calculation if node is null
-    let height = 60; // Base for padding, header, etc.
+    let height = 70; // Base for padding, header, etc. (Increased due to larger text)
     
-    // Title height - text-lg (approx 28px line height)
     if (node.title) {
-      const titleCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 12 /* p-3 for header */ - (node.emoji ? 24 : 0)) / 9); // Approx 9px char width for text-lg
+      const titleCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 16 /* px-4 for header */ - (node.emoji ? 28 : 0)) / 10); // Approx 10px char width for text-lg
       const titleLines = Math.ceil((node.title.length / titleCharsPerLine)) + (node.title.split('\\n').length -1);
-      height += Math.max(28, titleLines * 28);
+      height += Math.max(28, titleLines * 28); // text-lg approx 28px line height
     } else {
-      height += 28; // Min height for title area
+      height += 28;
     }
 
-    // Description height - text-sm (approx 20px line height)
     if (node.description && node.description.trim() !== "") {
-      const descCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 12 /* p-3 for desc box */) / 7); // Approx 7px char width for text-sm
+      const descCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 16 /* px-4 for desc box */) / 8); // Approx 8px char width for text-sm
       const descLines = Math.ceil((node.description.length / descCharsPerLine)) + (node.description.split('\\n').length -1);
-      height += Math.max(20, descLines * 20); 
+      height += Math.max(24, descLines * 24); // text-sm approx 24px line height
     } else {
-       height += 20; // Min height for empty description box
+       height += 24; // Min height for empty description box
     }
-    return Math.max(120, height); // Ensure a minimum overall height
+    return Math.max(150, height); 
   }, [NODE_CARD_WIDTH]);
 
 
@@ -46,8 +48,7 @@ export function useMindmaps() {
     const loadedMindmaps = getMindmapsFromStorage();
     setMindmaps(loadedMindmaps.map(m => {
       const migratedNodes: NodesObject = {};
-      let nextRootX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2) + ROOT_X_SPACING; 
-      const firstRootX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+      let nextRootX = INITIAL_ROOT_X + ROOT_X_SPACING;
 
       const rootsToProcess = Array.isArray(m.data.rootNodeIds) ? [...m.data.rootNodeIds] : [];
       
@@ -58,8 +59,8 @@ export function useMindmaps() {
         let x, y;
         if (node.x === undefined || node.y === undefined) {
           if (parentNode) { 
-            const parentX = parentNode.x ?? firstRootX;
-            const parentY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
+            const parentX = parentNode.x ?? INITIAL_ROOT_X;
+            const parentY = parentNode.y ?? INITIAL_ROOT_Y;
             const parentNodeHeight = getApproxNodeHeight(parentNode);
             
             x = parentX + CHILD_X_OFFSET; 
@@ -73,20 +74,20 @@ export function useMindmaps() {
             } else if (childrenCount === 1){
                 x = parentX; 
             }
-          } else { // This is a root node
+          } else { 
             if (isFirstRootOfMap) {
-                x = firstRootX;
-                y = Y_OFFSET_FOR_FIRST_ROOT;
+                x = INITIAL_ROOT_X;
+                y = INITIAL_ROOT_Y;
             } else {
                 x = nextRootX;
-                y = Y_OFFSET_FOR_FIRST_ROOT; 
+                y = INITIAL_ROOT_Y; 
                 nextRootX += ROOT_X_SPACING;
             }
           }
           migratedNodes[nodeId] = { ...node, x, y };
         } else {
           migratedNodes[nodeId] = { ...node };
-          if (!parentNode && node.x >= nextRootX && node.x !== firstRootX) { 
+          if (!parentNode && node.x >= nextRootX && node.x !== INITIAL_ROOT_X) { 
             nextRootX = node.x + ROOT_X_SPACING;
           }
         }
@@ -106,9 +107,9 @@ export function useMindmaps() {
            migratedNodes[nodeId] = { 
             ...node, 
             x: node.x === undefined ? nextRootX : node.x, 
-            y: node.y === undefined ? Y_OFFSET_FOR_FIRST_ROOT : node.y 
+            y: node.y === undefined ? INITIAL_ROOT_Y : node.y 
           };
-          if (node.x === undefined) nextRootX += ROOT_X_SPACING;
+          if (node.x === undefined && !node.parentId) nextRootX += ROOT_X_SPACING;
         }
       });
       
@@ -181,8 +182,8 @@ export function useMindmaps() {
     } else if (parentId) {
       const parentNode = currentNodes[parentId];
       if (parentNode) {
-        const parentNodeX = parentNode.x ?? ((LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2));
-        const parentNodeY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
+        const parentNodeX = parentNode.x ?? INITIAL_ROOT_X;
+        const parentNodeY = parentNode.y ?? INITIAL_ROOT_Y;
         const parentNodeHeight = getApproxNodeHeight(parentNode);
         const siblingCount = (parentNode.childIds || []).length;
 
@@ -200,11 +201,11 @@ export function useMindmaps() {
         parentId = null; 
         if (existingRootNodes.length > 0) {
           const lastRootNode = existingRootNodes.reduce((latest, node) => (node.x !== undefined && (latest.x === undefined || node.x > latest.x)) ? node : latest, existingRootNodes[0]!);
-          x = (lastRootNode.x ?? ((LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2))) + ROOT_X_SPACING;
-          y = lastRootNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
+          x = (lastRootNode.x ?? INITIAL_ROOT_X) + ROOT_X_SPACING;
+          y = lastRootNode.y ?? INITIAL_ROOT_Y;
         } else {
-          x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
-          y = Y_OFFSET_FOR_FIRST_ROOT;
+          x = INITIAL_ROOT_X;
+          y = INITIAL_ROOT_Y;
         }
       }
     } else { 
@@ -212,11 +213,11 @@ export function useMindmaps() {
          const lastRootNode = existingRootNodes.reduce((latest, node) => {
               return (node.x !== undefined && (latest.x === undefined || node.x > latest.x)) ? node : latest;
          }, existingRootNodes[0]!);
-         x = (lastRootNode.x ?? ((LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2))) + ROOT_X_SPACING;
-         y = Y_OFFSET_FOR_FIRST_ROOT; 
+         x = (lastRootNode.x ?? INITIAL_ROOT_X) + ROOT_X_SPACING;
+         y = INITIAL_ROOT_Y; 
       } else { 
-        x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
-        y = Y_OFFSET_FOR_FIRST_ROOT;
+        x = INITIAL_ROOT_X;
+        y = INITIAL_ROOT_Y;
       }
     }
 
@@ -229,6 +230,7 @@ export function useMindmaps() {
       childIds: [],
       x: x,
       y: y,
+      customBackgroundColor: nodeDetails.customBackgroundColor && nodeDetails.customBackgroundColor.trim() !== '' ? nodeDetails.customBackgroundColor.trim() : undefined,
     };
 
     const updatedNodes = { ...currentNodes, [newNodeId]: newNode };
@@ -247,7 +249,7 @@ export function useMindmaps() {
     }
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, getApproxNodeHeight, NODE_CARD_WIDTH, Y_OFFSET_FOR_FIRST_ROOT, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET, LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT]);
+  }, [getMindmapById, updateMindmap, getApproxNodeHeight, NODE_CARD_WIDTH, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -260,6 +262,7 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
+      customBackgroundColor: updates.customBackgroundColor && updates.customBackgroundColor.trim() !== '' ? updates.customBackgroundColor.trim() : undefined,
     };
 
     const updatedNodes = {
