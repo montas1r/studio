@@ -11,14 +11,48 @@ import { FileText, Eye, Edit3, Trash2, Layers, Calendar, ArrowRight } from 'luci
 import { format, parseISO } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 export default function HomePage() {
   const { mindmaps, createMindmap, deleteMindmap, isLoading } = useMindmaps();
   const router = useRouter();
+  const { toast } = useToast();
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [mindmapToDelete, setMindmapToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const handleCreateMindmap = (input: { name: string; category?: string }) => {
     const newMindmap = createMindmap(input);
     router.push(`/mindmap/${newMindmap.id}`);
+  };
+
+  const requestDeleteMindmap = (id: string, name: string) => {
+    setMindmapToDelete({ id, name });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (mindmapToDelete) {
+      deleteMindmap(mindmapToDelete.id);
+      toast({
+        title: "Mindmap Deleted",
+        description: `Mindmap "${mindmapToDelete.name}" has been deleted.`,
+        variant: "destructive",
+      });
+      setIsDeleteDialogOpen(false);
+      setMindmapToDelete(null);
+    }
   };
 
   return (
@@ -93,13 +127,30 @@ export default function HomePage() {
                     <Edit3 className="mr-2 h-4 w-4" /> Edit
                   </Link>
                 </Button>
-                <Button variant="destructive" size="icon" onClick={() => deleteMindmap(mindmap.id)} aria-label="Delete mindmap">
+                <Button variant="destructive" size="icon" onClick={() => requestDeleteMindmap(mindmap.id, mindmap.name)} aria-label="Delete mindmap">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
+      )}
+
+      {mindmapToDelete && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the mindmap "{mindmapToDelete.name}"? This action cannot be undone and will remove all its nodes.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setMindmapToDelete(null); }}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete Mindmap</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
