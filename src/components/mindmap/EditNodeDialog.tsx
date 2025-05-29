@@ -14,11 +14,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { EditNodeInput, NodeData } from '@/types/mindmap';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { EditNodeInput, NodeData, PaletteColorKey } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-// No Select for customBackgroundColor in v0.0.5
 
 interface EditNodeDialogProps {
   isOpen: boolean;
@@ -27,11 +27,20 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
+const PALETTE_OPTIONS: { label: string; value: PaletteColorKey | 'no-custom-color' }[] = [
+  { label: "Default Border", value: "no-custom-color" },
+  { label: "Indigo (Chart 1)", value: "chart-1" },
+  { label: "Rose (Chart 2)", value: "chart-2" },
+  { label: "Teal (Chart 3)", value: "chart-3" },
+  { label: "Amber (Chart 4)", value: "chart-4" },
+  { label: "Sky Blue (Chart 5)", value: "chart-5" },
+];
+
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  // No customBackgroundColor state in v0.0.5
+  const [customBorderColor, setCustomBorderColor] = useState<PaletteColorKey | 'no-custom-color'>('no-custom-color');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -40,12 +49,12 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      // No customBackgroundColor to set from node in v0.0.5
+      setCustomBorderColor(node.customBorderColor || 'no-custom-color');
     } else {
       setTitle('');
       setDescription('');
       setEmoji('');
-      // No customBackgroundColor to reset in v0.0.5
+      setCustomBorderColor('no-custom-color');
     }
   }, [node]);
 
@@ -55,7 +64,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        // No customBackgroundColor to save in v0.0.5
+        customBorderColor: customBorderColor === 'no-custom-color' ? undefined : customBorderColor,
       });
       onOpenChange(false);
     }
@@ -150,7 +159,36 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          {/* No color palette selection in v0.0.5 */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="node-border-color" className="text-right">
+              Border Color
+            </Label>
+            <div className="col-span-3">
+              <Select
+                value={customBorderColor}
+                onValueChange={(value) => setCustomBorderColor(value as PaletteColorKey | 'no-custom-color')}
+              >
+                <SelectTrigger id="node-border-color">
+                  <SelectValue placeholder="Select Border Color" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PALETTE_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        {option.value !== 'no-custom-color' && (
+                           <span 
+                             className="h-4 w-4 rounded-full border" 
+                             style={{ backgroundColor: `hsl(var(--${option.value}))`}}
+                           />
+                        )}
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

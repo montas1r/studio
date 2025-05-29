@@ -1,11 +1,11 @@
 
-// PaletteColorKey is NOT present in v0.0.5
-// export type PaletteColorKey =
-//   | 'chart-1'
-//   | 'chart-2'
-//   | 'chart-3'
-//   | 'chart-4'
-//   | 'chart-5';
+// PaletteColorKey is for predefined theme colors that can be chosen.
+export type PaletteColorKey =
+  | 'chart-1'
+  | 'chart-2'
+  | 'chart-3'
+  | 'chart-4'
+  | 'chart-5';
 
 export interface NodeData {
   id: string;
@@ -16,8 +16,8 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  // No customBackgroundColor in v0.0.5
-  // No imageUrl in v0.0.5
+  customBorderColor?: PaletteColorKey; // Added for custom border color
+  // No customBackgroundColor or imageUrl in v0.0.5
 }
 
 export interface NodesObject {
@@ -48,6 +48,6 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  // No customBackgroundColor in v0.0.5
-  // No imageUrl in v0.0.5
+  customBorderColor?: PaletteColorKey | 'no-custom-color'; // Added for custom border color selection
+  // No customBackgroundColor or imageUrl in v0.0.5
 }
