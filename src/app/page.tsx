@@ -70,7 +70,7 @@ export default function HomePage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <Card key={i} className="shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-2xl">
               <CardHeader>
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
@@ -87,7 +87,7 @@ export default function HomePage() {
           ))}
         </div>
       ) : mindmaps.length === 0 ? (
-        <Card className="text-center py-12 shadow-lg">
+        <Card className="text-center py-12 shadow-lg rounded-2xl">
           <CardContent className="flex flex-col items-center gap-4">
             <Image src="https://placehold.co/300x200.png" alt="No mindmaps placeholder" width={300} height={200} className="rounded-md mb-4 opacity-70" data-ai-hint="empty state illustration" />
             <h2 className="text-2xl font-semibold">No Mindmaps Yet</h2>
@@ -100,7 +100,7 @@ export default function HomePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {mindmaps.sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map((mindmap) => (
-            <Card key={mindmap.id} className="flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-xl overflow-hidden">
+            <Card key={mindmap.id} className="flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-2xl overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-2xl hover:text-primary transition-colors">
                   <Link href={`/mindmap/${mindmap.id}`}>{mindmap.name}</Link>

@@ -4,115 +4,128 @@
 
 @layer base {
   :root {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 243 77% 59%; /* Synapse Indigo */
-    --primary-foreground: 0 0% 98%; /* White text on Indigo */
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 256 86% 69%; /* Synapse Violet */
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 224 71% 4%; /* Deep, dark desaturated blue */
+    --foreground: 210 20% 98%; /* Very light, slightly cool white */
+
+    --card: 224 71% 9%; /* Dark blue, slightly lighter than background */
+    --card-foreground: 210 20% 98%;
+
+    --popover: 224 71% 6%; /* Even darker for popovers */
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 260 100% 70%; /* Vibrant violet/purple - "glowing" */
+    --primary-foreground: 210 20% 98%; /* Ensure contrast */
+
+    --secondary: 220 14% 15%; /* Darker gray-blue */
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 220 14% 10%; /* Even darker for muted backgrounds */
+    --muted-foreground: 220 10% 60%;
+
+    --accent: 190 100% 50%; /* Bright cyan/teal - "glowing" */
+    --accent-foreground: 210 20% 98%; /* Ensure contrast */
+
+    --destructive: 0 72% 51%; /* Clear red */
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 243 77% 59%; /* Synapse Indigo for ring */
-    --radius: 0.75rem;
 
-    /* SynapseSpark Specific Palette */
-    --synapse-indigo: 243 77% 59%; /* #4F46E5 */
-    --synapse-violet: 256 86% 69%; /* #8B5CF6 */
-    --synapse-light-gray: 220 13% 97%; /* #F9FAFB */
+    --border: 220 14% 20%; /* Darker border */
+    --input: 220 14% 12%; /* Dark input background */
+    --ring: 260 100% 70%; /* Primary color for rings - "glowing" */
 
-    /* Chart colors */
-    --chart-1-raw: 243 77% 59%; /* Indigo - Synapse Primary */
+    --radius: 1rem; /* Default for rounded-lg will be 1rem (like rounded-2xl) */
+
+    /* Chart colors - Keeping these distinct but fitting the darker theme */
+    /* Consider making these slightly more vibrant if they look too muted against new bg */
+    --chart-1-raw: 243 77% 59%; 
     --chart-1: var(--chart-1-raw);
-    --chart-1-foreground: 0 0% 98%; /* White text for Indigo */
+    --chart-1-foreground: 0 0% 98%; 
     
-    --chart-2-raw: 340 80% 60%; /* Pink/Rose */
+    --chart-2-raw: 340 80% 60%; 
     --chart-2: var(--chart-2-raw);
-    --chart-2-foreground: 0 0% 98%; /* White text for Pink/Rose */
+    --chart-2-foreground: 0 0% 98%; 
 
-    --chart-3-raw: 160 60% 45%; /* Teal/Green */
+    --chart-3-raw: 160 60% 45%; 
     --chart-3: var(--chart-3-raw);
-    --chart-3-foreground: 0 0% 98%; /* White text for Teal/Green */
+    --chart-3-foreground: 0 0% 98%; 
 
-    --chart-4-raw: 40 80% 55%;  /* Amber/Orange */
+    --chart-4-raw: 40 80% 55%;  
     --chart-4: var(--chart-4-raw);
-    --chart-4-foreground: 0 0% 10%;  /* Dark text for Amber/Orange */
+    --chart-4-foreground: 0 0% 10%;  
 
-    --chart-5-raw: 200 70% 50%; /* Sky Blue */
+    --chart-5-raw: 200 70% 50%; 
     --chart-5: var(--chart-5-raw);
-    --chart-5-foreground: 0 0% 10%;  /* Dark text for Sky Blue */
+    --chart-5-foreground: 0 0% 10%;  
 
-    /* Sidebar specific colors */
-    --sidebar-background: 0 0% 7%;
-    --sidebar-foreground: 0 0% 80%;
-    --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 0 0% 9%;
-    --sidebar-accent: 0 0% 20%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 0 0% 83.1%;
+    /* Sidebar specific colors - Adjusted for new dark theme */
+    --sidebar-background: 224 71% 7%; /* Slightly different from main background */
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 210 20% 98%;
+    --sidebar-primary-foreground: 224 71% 9%;
+    --sidebar-accent: 220 14% 25%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 220 14% 25%;
+    --sidebar-ring: 210 20% 83%;
   }
 
   .light {
-    --background: 220 13% 97%; /* Synapse Light Gray */
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --background: 220 20% 97%; /* Lighter, cool gray */
+    --foreground: 220 25% 10%; /* Dark gray-blue text */
+
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 220 25% 10%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 243 77% 59%; /* Synapse Indigo */
-    --primary-foreground: 0 0% 98%; /* White text on Indigo */
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 256 86% 69%; /* Synapse Violet */
-    --accent-foreground: 0 0% 98%; /* White text on Violet */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 243 77% 59%; /* Synapse Indigo for ring */
+    --popover-foreground: 220 25% 10%;
+
+    --primary: 250 75% 60%; /* Slightly softer purple for light theme */
+    --primary-foreground: 0 0% 100%; 
+
+    --secondary: 220 15% 95%; /* Very light gray */
+    --secondary-foreground: 220 20% 25%;
+
+    --muted: 220 15% 93%;
+    --muted-foreground: 220 15% 45%;
+
+    --accent: 180 70% 45%; /* Softer teal for light theme */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 88%;
+    --input: 220 15% 92%;
+    --ring: 250 75% 60%; /* Primary color for rings */
 
     /* Chart colors - Light theme adjustments */
-    --chart-1-raw: 243 77% 59%;
-    --chart-1: var(--chart-1-raw);  /* Indigo */
-    --chart-1-foreground: 0 0% 98%;
+    --chart-1-raw: 250 75% 60%;
+    --chart-1: var(--chart-1-raw); 
+    --chart-1-foreground: 0 0% 100%;
 
     --chart-2-raw: 340 70% 55%;
-    --chart-2: var(--chart-2-raw); /* Pink/Rose */
-    --chart-2-foreground: 0 0% 98%;
+    --chart-2: var(--chart-2-raw);
+    --chart-2-foreground: 0 0% 100%;
 
     --chart-3-raw: 160 50% 40%;
-    --chart-3: var(--chart-3-raw); /* Teal/Green */
-    --chart-3-foreground: 0 0% 98%;
+    --chart-3: var(--chart-3-raw); 
+    --chart-3-foreground: 0 0% 100%;
 
     --chart-4-raw: 35 70% 50%;
-    --chart-4: var(--chart-4-raw);  /* Amber/Orange */
+    --chart-4: var(--chart-4-raw);  
     --chart-4-foreground: 0 0% 10%;
 
     --chart-5-raw: 195 60% 45%;
-    --chart-5: var(--chart-5-raw); /* Sky Blue */
+    --chart-5: var(--chart-5-raw); 
     --chart-5-foreground: 0 0% 10%;
 
      /* Sidebar specific colors - Light theme */
-    --sidebar-background: 0 0% 97%;
-    --sidebar-foreground: 0 0% 20%;
-    --sidebar-primary: 0 0% 9%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 90%;
-    --sidebar-accent-foreground: 0 0% 9%;
-    --sidebar-border: 0 0% 85%;
-    --sidebar-ring: 0 0% 3.9%;
+    --sidebar-background: 220 15% 97%;
+    --sidebar-foreground: 220 20% 30%;
+    --sidebar-primary: 220 25% 15%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 90%;
+    --sidebar-accent-foreground: 220 20% 20%;
+    --sidebar-border: 220 15% 85%;
+    --sidebar-ring: 220 25% 20%;
   }
 }
 
