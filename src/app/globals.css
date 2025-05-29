@@ -30,7 +30,7 @@
     --synapse-violet: 256 86% 69%; /* #8B5CF6 */
     --synapse-light-gray: 220 13% 97%; /* #F9FAFB */
 
-    /* Chart colors (Used for node palette if re-enabled) */
+    /* Chart colors */
     --chart-1-raw: 243 77% 59%; /* Indigo - Synapse Primary */
     --chart-1: var(--chart-1-raw);
     --chart-1-foreground: 0 0% 98%; /* White text for Indigo */
@@ -51,8 +51,7 @@
     --chart-5: var(--chart-5-raw);
     --chart-5-foreground: 0 0% 10%;  /* Dark text for Sky Blue */
 
-
-    /* Sidebar specific colors (if a sidebar were to be used) */
+    /* Sidebar specific colors */
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 80%;
     --sidebar-primary: 0 0% 98%;
