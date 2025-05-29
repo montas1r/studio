@@ -16,8 +16,8 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  customBorderColor?: PaletteColorKey; // Added for custom border color
-  // No customBackgroundColor or imageUrl in v0.0.5
+  customBackgroundColor?: PaletteColorKey; // Changed from customBorderColor
+  // No imageUrl in v0.0.5
 }
 
 export interface NodesObject {
@@ -48,6 +48,7 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  customBorderColor?: PaletteColorKey | 'no-custom-color'; // Added for custom border color selection
-  // No customBackgroundColor or imageUrl in v0.0.5
+  customBackgroundColor?: PaletteColorKey | 'no-custom-color'; // Changed from customBorderColor
+  // No imageUrl in v0.0.5
 }
+

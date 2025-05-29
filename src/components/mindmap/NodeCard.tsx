@@ -1,21 +1,17 @@
 
 "use client";
 
-import type { NodeData } from '@/types/mindmap';
+import type { NodeData, PaletteColorKey } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
-// No Image import in v0.0.5 logic, but PaletteColorKey means custom color logic is now active
-// For v0.0.5, descriptionBgClass was theme-based opacity: bg-primary/10 or bg-accent/10
-// Then a later request made it always light: bg-slate-50 text-slate-700
-// Sticking to "always light" as per latest interpretation before this request.
+import Image from 'next/image'; // Keep for potential future use, but not used in v0.0.5 logic
 
 const APPROX_MIN_DESC_BOX_HEIGHT = 20; 
 
 interface NodeCardProps {
   node: NodeData;
-  isRoot: boolean;
   onEdit: (node: NodeData) => void;
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
@@ -23,8 +19,29 @@ interface NodeCardProps {
   className?: string;
 }
 
-export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
-  const cardBaseClasses = "rounded-xl shadow-xl flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden";
+// Helper to determine text color contrast.
+// This is a simplified version. For perfect contrast, a more sophisticated algorithm is needed.
+function getContrastingTextColor(backgroundColorVar?: PaletteColorKey): string {
+  if (!backgroundColorVar) return "text-primary-foreground"; // Default for primary/accent
+
+  // Based on the chart colors in globals.css (dark/light text needs)
+  switch (backgroundColorVar) {
+    case 'chart-1': // Indigo
+    case 'chart-2': // Rose
+    case 'chart-3': // Teal
+      return "text-primary-foreground"; // White/light text
+    case 'chart-4': // Amber
+    case 'chart-5': // Sky Blue
+      return "text-foreground"; // Dark text (primary foreground of light theme)
+    default:
+      return "text-primary-foreground";
+  }
+}
+
+
+export function NodeCard({ node, onEdit, onDelete, onAddChild, onDragStart, className }: NodeCardProps) {
+  const isRoot = !node.parentId;
+  const cardBaseClasses = "rounded-xl shadow-xl flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden border-2";
   const headerBaseClasses = "flex items-center justify-between p-3 rounded-t-xl";
 
   const cardPositionStyle: React.CSSProperties = {
@@ -34,48 +51,56 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
     width: '300px', 
   };
   
-  let currentCardClasses = cn(cardBaseClasses, "border-2"); // Always apply border-2 for width
+  let currentCardClasses = cn(cardBaseClasses);
   let currentHeaderClasses = headerBaseClasses;
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  
-  // Description box is always light-themed as per recent requests for v0.0.5
-  const descriptionBgClass = "bg-slate-50";
-  const descriptionTextColorClass = "text-slate-700";
+  let descriptionBgClass = "";
 
-  let cardInlineStyle: React.CSSProperties = { ...cardPositionStyle };
+  const cardStyle: React.CSSProperties = { ...cardPositionStyle };
 
-  // Determine base theme styling (primary for root, accent for child)
-  // These will be overridden by customBorderColor for the border if set.
-  if (isRoot) {
-    currentCardClasses = cn(currentCardClasses, "bg-primary border-primary"); // border-primary provides fallback
-    currentHeaderClasses = cn(currentHeaderClasses, "bg-primary");
-    headerTextColorClass = "text-primary-foreground";
-    buttonTextColorClass = "text-primary-foreground";
-    buttonHoverBgClass = "hover:bg-primary/80";
+  if (node.customBackgroundColor) {
+    cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
+    currentCardClasses = cn(currentCardClasses, `border-[hsl(var(--${node.customBackgroundColor}))]`); // Border matches background
+    currentHeaderClasses = cn(currentHeaderClasses); // Header bg is same as card bg
+    
+    headerTextColorClass = getContrastingTextColor(node.customBackgroundColor);
+    buttonTextColorClass = headerTextColorClass; // Buttons use same contrasting text
+    // Create a slightly darker hover for custom backgrounds by reducing lightness or adding opacity
+    // This is a simplification; a proper HSL manipulation library would be better.
+    // For now, we'll just use a generic darker semi-transparent overlay for hover.
+    buttonHoverBgClass = "hover:bg-black/10 dark:hover:bg-white/10";
+
+    // Description box with lighter version of custom background
+    // We need the -raw value for HSLA if available, otherwise use the main color.
+    // Assuming chart colors have a -raw variant like in some themes.
+    const colorVar = `var(--${node.customBackgroundColor}-raw, var(--${node.customBackgroundColor}))`;
+    descriptionBgClass = `bg-[hsla(${colorVar},0.1)]`; // 10% opacity
+
   } else {
-    currentCardClasses = cn(currentCardClasses, "bg-accent border-accent"); // border-accent provides fallback
-    currentHeaderClasses = cn(currentHeaderClasses, "bg-accent");
-    headerTextColorClass = "text-accent-foreground";
-    buttonTextColorClass = "text-accent-foreground";
-    buttonHoverBgClass = "hover:bg-accent/80";
-  }
-
-  // Apply custom border color if set, overriding theme border color
-  if (node.customBorderColor) {
-    cardInlineStyle.borderColor = `hsl(var(--${node.customBorderColor}))`;
-    // Note: Background color of the node itself (currentCardClasses bg-primary/bg-accent) is NOT changed by customBorderColor.
-    // The header and button text colors remain based on isRoot for now.
-    // If customBorderColor implies the whole node theme changes, more logic for text contrast would be needed.
-    // For now, customBorderColor ONLY affects the border.
+    if (isRoot) {
+      currentCardClasses = cn(currentCardClasses, "bg-primary border-primary");
+      currentHeaderClasses = cn(currentHeaderClasses, "bg-primary");
+      headerTextColorClass = "text-primary-foreground";
+      buttonTextColorClass = "text-primary-foreground";
+      buttonHoverBgClass = "hover:bg-primary/80";
+      descriptionBgClass = "bg-primary/10"; // Lighter version of primary
+    } else {
+      currentCardClasses = cn(currentCardClasses, "bg-accent border-accent");
+      currentHeaderClasses = cn(currentHeaderClasses, "bg-accent");
+      headerTextColorClass = "text-accent-foreground";
+      buttonTextColorClass = "text-accent-foreground";
+      buttonHoverBgClass = "hover:bg-accent/80";
+      descriptionBgClass = "bg-accent/10"; // Lighter version of accent
+    }
   }
   
   return (
     <div
       id={`node-${node.id}`}
       className={cn(currentCardClasses, className)}
-      style={cardInlineStyle}
+      style={cardStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => e.stopPropagation()} 
@@ -106,15 +131,16 @@ export function NodeCard({ node, isRoot, onEdit, onDelete, onAddChild, onDragSta
           </Button>
         </div>
       </div>
-
+      
+      {/* Description Box Styling */}
       <div className={cn(
           "p-3 flex-grow", 
-          descriptionBgClass, 
-          descriptionTextColorClass,
+          descriptionBgClass, // Applied dynamic or theme-based light background
+          headerTextColorClass, // Text color should contrast with the descriptionBg
           !node.description && `min-h-[${APPROX_MIN_DESC_BOX_HEIGHT}px]`
       )}>
         {node.description ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{node.description}</p>
+          <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">{node.description}</p>
         ) : (
           <div className="h-full"></div> 
         )}

@@ -23,12 +23,12 @@ import { useToast } from '@/hooks/use-toast';
 interface EditNodeDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  node: NodeData | null;
+  node: NodeData | null; // Can be existing or temporary new node
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
 const PALETTE_OPTIONS: { label: string; value: PaletteColorKey | 'no-custom-color' }[] = [
-  { label: "Default Border", value: "no-custom-color" },
+  { label: "Default Theme", value: "no-custom-color" },
   { label: "Indigo (Chart 1)", value: "chart-1" },
   { label: "Rose (Chart 2)", value: "chart-2" },
   { label: "Teal (Chart 3)", value: "chart-3" },
@@ -40,7 +40,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  const [customBorderColor, setCustomBorderColor] = useState<PaletteColorKey | 'no-custom-color'>('no-custom-color');
+  const [customBackgroundColor, setCustomBackgroundColor] = useState<PaletteColorKey | 'no-custom-color'>('no-custom-color');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -49,22 +49,23 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      setCustomBorderColor(node.customBorderColor || 'no-custom-color');
+      setCustomBackgroundColor(node.customBackgroundColor || 'no-custom-color');
     } else {
+      // Reset for new node if node becomes null (though typically dialog closes)
       setTitle('');
       setDescription('');
       setEmoji('');
-      setCustomBorderColor('no-custom-color');
+      setCustomBackgroundColor('no-custom-color');
     }
   }, [node]);
 
   const handleSubmit = () => {
     if (node && title.trim()) {
-      onSave(node.id, {
+      onSave(node.id, { // Pass node.id (which is temp-uuid for new nodes)
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        customBorderColor: customBorderColor === 'no-custom-color' ? undefined : customBorderColor,
+        customBackgroundColor: customBackgroundColor === 'no-custom-color' ? undefined : customBackgroundColor,
       });
       onOpenChange(false);
     }
@@ -160,16 +161,16 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
             </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="node-border-color" className="text-right">
-              Border Color
+            <Label htmlFor="node-bg-color" className="text-right">
+              Node Color
             </Label>
             <div className="col-span-3">
               <Select
-                value={customBorderColor}
-                onValueChange={(value) => setCustomBorderColor(value as PaletteColorKey | 'no-custom-color')}
+                value={customBackgroundColor}
+                onValueChange={(value) => setCustomBackgroundColor(value as PaletteColorKey | 'no-custom-color')}
               >
-                <SelectTrigger id="node-border-color">
-                  <SelectValue placeholder="Select Border Color" />
+                <SelectTrigger id="node-bg-color">
+                  <SelectValue placeholder="Select Node Color" />
                 </SelectTrigger>
                 <SelectContent>
                   {PALETTE_OPTIONS.map(option => (
@@ -198,3 +199,4 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     </Dialog>
   );
 }
+
