@@ -4,9 +4,8 @@
 import type { NodeData } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
-import React from 'react'; 
+import React, { useCallback } from 'react'; 
 import { cn } from '@/lib/utils';
-import Image from 'next/image'; // For potential future image use, keep for now
 
 interface NodeCardProps {
   node: NodeData;
@@ -15,17 +14,16 @@ interface NodeCardProps {
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
   className?: string;
-  domRefCallback: (nodeId: string, element: HTMLDivElement | null) => void;
+  // No domRefCallback in v0.0.5 simpler wire drawing
 }
 
-const NodeCardComponent = React.memo(({ 
+const NodeCardComponent = ({ 
   node, 
   onEdit, 
   onDelete, 
   onAddChild, 
   onDragStart, 
   className,
-  domRefCallback 
 }: NodeCardProps) => {
   const isRoot = !node.parentId;
   
@@ -33,13 +31,11 @@ const NodeCardComponent = React.memo(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', 
+    width: '300px', // Fixed width
   };
 
-  // Base classes for all nodes
   const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
   
-  // Determine theme-based classes (these act as fallbacks if no custom color)
   const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
   const themeBorderClass = isRoot ? "border-primary" : "border-accent";
   const themeHeaderTextColorClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
@@ -47,19 +43,14 @@ const NodeCardComponent = React.memo(({
 
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
   
-  // Description box styling (always light themed for readability)
-  const descriptionBgClass = 'bg-primary/10'; // Example using primary, could be a fixed light color
-  const descriptionTextColorClass = 'text-primary-foreground/90';
+  // For v0.0.5, description box background is a lighter version of the theme color
+  const descriptionBgClass = isRoot ? 'bg-primary/10' : 'bg-accent/10';
+  const descriptionTextColorClass = isRoot ? 'text-primary-foreground/90' : 'text-accent-foreground/90';
 
-
-  const refCallback = React.useCallback((element: HTMLDivElement | null) => {
-    domRefCallback(node.id, element);
-  }, [domRefCallback, node.id]);
 
   return (
     <div
       id={`node-${node.id}`}
-      ref={refCallback}
       className={currentCardClasses}
       style={cardPositionStyle}
       draggable
@@ -107,7 +98,7 @@ const NodeCardComponent = React.memo(({
       </div>
     </div>
   );
-});
+};
 
 NodeCardComponent.displayName = 'NodeCardComponent';
-export const NodeCard = NodeCardComponent;
+export const NodeCard = React.memo(NodeCardComponent);
