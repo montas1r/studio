@@ -13,7 +13,7 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
-  domRefCallback: (nodeId: string, element: HTMLDivElement | null) => void;
+  // domRefCallback: (nodeId: string, element: HTMLDivElement | null) => void; // Removed
   className?: string;
 }
 
@@ -23,7 +23,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onDelete,
   onAddChild,
   onDragStart,
-  domRefCallback,
+  // domRefCallback, // Removed
   className,
 }) => {
   const isRoot = !node.parentId;
@@ -32,41 +32,40 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', // Fixed width
+    width: '300px', // Fixed width for v0.0.5
   };
 
-  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
+  // v0.0.5 uses default theme colors, no customBackgroundColor
   const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
   const themeBorderClass = isRoot ? "border-primary" : "border-accent";
   const headerTextColorClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
   const buttonHoverBgClass = "hover:bg-black/20";
 
-  const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
-
-  // For v0.0.5, description box background is fixed light for readability
-  const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800'; // Using a fixed light/dark-compatible slate
+  // Fixed light description box for v0.0.5 as per user request after initial MD
+  const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
+  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
+  const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
     onDragStart(event, node.id);
   };
 
-  const elementRef = React.useCallback((element: HTMLDivElement | null) => {
-    domRefCallback(node.id, element);
-  }, [node.id, domRefCallback]);
-
+  // const elementRef = React.useCallback((element: HTMLDivElement | null) => { // Removed
+  //   domRefCallback(node.id, element);
+  // }, [node.id, domRefCallback]);
 
   return (
     <div
       id={`node-${node.id}`}
-      ref={elementRef}
+      // ref={elementRef} // Removed
       className={currentCardClasses}
       style={cardPositionStyle}
       draggable
       onDragStart={handleDragStartInternal}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()} // Prevent canvas click-to-pan/select
+      onMouseDown={(e) => e.stopPropagation()} // Prevent canvas click-to-pan/select
     >
       <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -98,12 +97,12 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
           "px-4 py-3 flex-grow",
           descriptionBgClass,
           descriptionTextColorClass,
-          !node.description && "min-h-[24px]"
+          !node.description && "min-h-[24px]" // Ensure some height even if description is empty
       )}>
         {node.description ? (
           <p className={cn("text-sm whitespace-pre-wrap leading-relaxed break-words")}>{node.description}</p>
         ) : (
-          <div className="h-full"></div>
+          <div className="h-full"></div> // Placeholder for consistent height if no description
         )}
       </div>
     </div>
