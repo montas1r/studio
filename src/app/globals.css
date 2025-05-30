@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,23 +37,23 @@
 
     /* Chart colors - Keeping these distinct but fitting the darker theme */
     /* Consider making these slightly more vibrant if they look too muted against new bg */
-    --chart-1-raw: 243 77% 59%; 
+    --chart-1-raw: 243 77% 59%; /* Indigo-like */
     --chart-1: var(--chart-1-raw);
     --chart-1-foreground: 0 0% 98%; 
     
-    --chart-2-raw: 340 80% 60%; 
+    --chart-2-raw: 340 80% 60%; /* Rose/Pink-like */
     --chart-2: var(--chart-2-raw);
     --chart-2-foreground: 0 0% 98%; 
 
-    --chart-3-raw: 160 60% 45%; 
+    --chart-3-raw: 160 60% 45%; /* Teal/Green-like */
     --chart-3: var(--chart-3-raw);
     --chart-3-foreground: 0 0% 98%; 
 
-    --chart-4-raw: 40 80% 55%;  
+    --chart-4-raw: 40 80% 55%;  /* Orange-like */
     --chart-4: var(--chart-4-raw);
     --chart-4-foreground: 0 0% 10%;  
 
-    --chart-5-raw: 200 70% 50%; 
+    --chart-5-raw: 200 70% 50%; /* Sky Blue-like */
     --chart-5: var(--chart-5-raw);
     --chart-5-foreground: 0 0% 10%;  
 
