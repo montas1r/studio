@@ -50,7 +50,7 @@ SynapseSpark (v0.0.5) is a web application designed to help users create, organi
         - Root nodes use the `primary` theme color for background and border.
         - Child nodes use the `accent` theme color for background and border.
     - **No custom palette selection** for individual node background or border colors in this version.
-    - The description box within each node has a lighter, translucent background derived from the node's default theme color (e.g., `bg-primary/10` or `bg-accent/10`).
+    - The description box within each node has a fixed light background (e.g., light slate) with dark text for optimal readability, independent of the node's theme color.
     - Node titles use `text-lg` and descriptions use `text-sm` for font size.
 - **Wire Styling:**
     - Curved SVG lines visually connect parent nodes to their child nodes.
