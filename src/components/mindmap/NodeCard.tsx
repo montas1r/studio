@@ -15,9 +15,10 @@ interface NodeCardProps {
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
   className?: string;
-  domRefCallback: (element: HTMLDivElement | null) => void;
+  domRefCallback: (nodeId: string, element: HTMLDivElement | null) => void; // Updated to include nodeId
 }
 
+// Renamed to NodeCardComponent to allow React.memo wrapping
 const NodeCardComponent = ({ 
   node, 
   onEdit, 
@@ -33,37 +34,33 @@ const NodeCardComponent = ({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', // Fixed width for node cards
+    width: '300px', // Fixed width for node cards from v0.0.5
   };
   
-  let cardStyle: React.CSSProperties = { ...cardPositionStyle };
+  // v0.0.5 logic: No customBackgroundColor, only theme-based
+  let cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
+  let currentCardClasses = "";
   let headerBaseClasses = "flex items-center justify-between px-4 py-2 rounded-t-2xl";
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
-  
-  let baseBorderClass = "border-2"; 
-  let currentCardClasses = "";
-  let descriptionBgClass = "bg-slate-50"; // Always light for description box
-  let descriptionTextColorClass = "text-slate-700"; // Always dark text for description
+  let descriptionBgClass = ""; 
+  let descriptionTextColorClass = "";
 
-  // Node Background and Border Color based on v0.0.5 (no custom palette color selection)
   if (isRoot) {
-    currentCardClasses = cn(currentCardClasses, "bg-primary border-primary");
+    currentCardClasses = cn(cardBaseClasses, "bg-primary border-primary");
     headerTextColorClass = "text-primary-foreground";
     buttonTextColorClass = "text-primary-foreground";
     buttonHoverBgClass = "hover:bg-black/10";
-    // Description box background for root (lighter primary)
-    // descriptionBgClass = "bg-primary/10"; // Reverted from v0.0.2, now fixed light
-    // descriptionTextColorClass = "text-primary-foreground";
+    descriptionBgClass = "bg-primary/10"; 
+    descriptionTextColorClass = "text-primary-foreground";
   } else {
-    currentCardClasses = cn(currentCardClasses, "bg-accent border-accent");
+    currentCardClasses = cn(cardBaseClasses, "bg-accent border-accent");
     headerTextColorClass = "text-accent-foreground";
     buttonTextColorClass = "text-accent-foreground";
     buttonHoverBgClass = "hover:bg-black/10";
-    // Description box background for child (lighter accent)
-    // descriptionBgClass = "bg-accent/10"; // Reverted from v0.0.2, now fixed light
-    // descriptionTextColorClass = "text-accent-foreground";
+    descriptionBgClass = "bg-accent/10";
+    descriptionTextColorClass = "text-accent-foreground";
   }
   
   const [imageError, setImageError] = React.useState(false);
@@ -82,19 +79,21 @@ const NodeCardComponent = ({
     setImageError(false); 
   }, [node.imageUrl]);
 
+  // Callback ref to register/unregister DOM element
+  const refCallback = React.useCallback((element: HTMLDivElement | null) => {
+    domRefCallback(node.id, element);
+  }, [domRefCallback, node.id]);
+
   return (
     <div
       id={`node-${node.id}`}
-      ref={domRefCallback}
+      ref={refCallback} // Use the callback ref here
       className={cn(
-        "node-card-draggable",
-        "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden",
-        "rounded-2xl shadow-lg", 
-        baseBorderClass,
+        "node-card-draggable", // For identifying nodes vs background
         currentCardClasses,
         className
       )}
-      style={cardStyle} 
+      style={cardPositionStyle} 
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => e.stopPropagation()} 
@@ -127,14 +126,16 @@ const NodeCardComponent = ({
         </div>
       </div>
       
+      {/* v0.0.5 logic - imageUrl is not part of NodeData */}
+      {/* 
       {node.imageUrl && isValidHttpUrl(node.imageUrl) && !imageError && (
         <div className="relative w-full aspect-video overflow-hidden">
           <Image 
             src={node.imageUrl} 
             alt={`Image for ${node.title}`} 
-            fill // Changed from layout="fill" objectFit="cover"
-            sizes="(max-width: 300px) 100vw, 300px" // Example sizes, adjust as needed
-            style={{ objectFit: 'cover' }} // For next/image v13+
+            fill
+            sizes="(max-width: 300px) 100vw, 300px"
+            style={{ objectFit: 'cover' }}
             onError={() => setImageError(true)}
             className="bg-muted"
           />
@@ -145,12 +146,13 @@ const NodeCardComponent = ({
             Invalid Image
           </div>
       )}
+      */}
 
       <div className={cn(
-          "px-4 py-3 flex-grow rounded-b-2xl",
+          "px-4 py-3 flex-grow rounded-b-2xl", // py-3 for description
           descriptionBgClass, 
           descriptionTextColorClass,
-          !node.description && "min-h-[20px]" // Ensure some min height if no description
+          !node.description && "min-h-[20px]" 
       )}>
         {node.description ? (
           <p className={cn("text-sm whitespace-pre-wrap leading-relaxed break-words")}>{node.description}</p>
