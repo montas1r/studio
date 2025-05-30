@@ -1,11 +1,5 @@
 
-// PaletteColorKey is for predefined theme colors that can be chosen.
-export type PaletteColorKey =
-  | 'chart-1'
-  | 'chart-2'
-  | 'chart-3'
-  | 'chart-4'
-  | 'chart-5';
+// PaletteColorKey is removed as custom node background coloring is removed.
 
 export interface NodeData {
   id: string;
@@ -16,8 +10,8 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  customBackgroundColor?: PaletteColorKey; // Changed from string to PaletteColorKey
-  // No imageUrl in v0.0.5
+  // customBackgroundColor?: PaletteColorKey; // Removed
+  // No imageUrl in this version
 }
 
 export interface NodesObject {
@@ -48,5 +42,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  customBackgroundColor?: PaletteColorKey | 'no-custom-color'; // Allow clearing
+  // customBackgroundColor?: PaletteColorKey | 'no-custom-color'; // Removed
 }

@@ -1,12 +1,12 @@
 
 "use client";
 
-import type { NodeData, PaletteColorKey } from '@/types/mindmap';
+import type { NodeData } from '@/types/mindmap'; // PaletteColorKey removed
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react'; 
 import { cn } from '@/lib/utils';
-// No Image component in v0.0.5
+import Image from 'next/image'; // For potential future image use, keep for now
 
 interface NodeCardProps {
   node: NodeData;
@@ -18,7 +18,7 @@ interface NodeCardProps {
   domRefCallback: (nodeId: string, element: HTMLDivElement | null) => void;
 }
 
-const NodeCardComponent = ({ 
+const NodeCardComponent = React.memo(({ 
   node, 
   onEdit, 
   onDelete, 
@@ -40,42 +40,33 @@ const NodeCardComponent = ({
   let headerTextColorClass = "";
   let buttonTextColorClass = "";
   let buttonHoverBgClass = "";
+  let cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
+  let currentCardClasses = "";
   
-  // Base classes for border (theme-based or default)
-  let borderClass = isRoot ? "border-primary" : "border-accent";
-
-  if (node.customBackgroundColor) {
-    cardStyle.backgroundColor = `hsl(var(--${node.customBackgroundColor}))`;
-    // Use custom color for border as well if background is custom
-    borderClass = `border-[hsl(var(--${node.customBackgroundColor}))]`;
-
-    // Basic contrast check for header text/buttons based on typical palette.
-    // These chart colors are often dark, so light text is usually okay.
-    // More sophisticated contrast logic would be needed for a wider, unknown palette.
-    if (node.customBackgroundColor === 'chart-4' || node.customBackgroundColor === 'chart-5') {
-        headerTextColorClass = "text-gray-900"; // Or use a foreground variable from the chart palette
-        buttonTextColorClass = "text-gray-900";
-        buttonHoverBgClass = "hover:bg-white/30";
-    } else {
-        headerTextColorClass = "text-primary-foreground"; // Assuming custom colors are dark enough for light text
-        buttonTextColorClass = "text-primary-foreground";
-        buttonHoverBgClass = "hover:bg-black/20";
-    }
+  // Default theme-based styling
+  if (isRoot) {
+    cardStyle.backgroundColor = `hsl(var(--primary))`;
+    cardStyle.borderColor = `hsl(var(--primary))`;
+    headerTextColorClass = "text-primary-foreground";
+    buttonTextColorClass = "text-primary-foreground";
+    buttonHoverBgClass = "hover:bg-black/20";
+    currentCardClasses = cn(cardBaseClasses, "border-primary bg-primary");
   } else {
-    // Default theme-based background and text colors
-    if (isRoot) {
-      cardStyle.backgroundColor = `hsl(var(--primary))`;
-      headerTextColorClass = "text-primary-foreground";
-      buttonTextColorClass = "text-primary-foreground";
-      buttonHoverBgClass = "hover:bg-black/20";
-    } else {
-      cardStyle.backgroundColor = `hsl(var(--accent))`;
-      headerTextColorClass = "text-accent-foreground";
-      buttonTextColorClass = "text-accent-foreground";
-      buttonHoverBgClass = "hover:bg-black/20";
-    }
+    cardStyle.backgroundColor = `hsl(var(--accent))`;
+    cardStyle.borderColor = `hsl(var(--accent))`;
+    headerTextColorClass = "text-accent-foreground";
+    buttonTextColorClass = "text-accent-foreground";
+    buttonHoverBgClass = "hover:bg-black/20";
+    currentCardClasses = cn(cardBaseClasses, "border-accent bg-accent");
   }
   
+  // Removed customBackgroundColor logic, inline styles simplified
+  // The className now handles the default theme bg and border
+
+  const descriptionBgClass = isRoot ? 'bg-primary/10' : 'bg-accent/10'; // Lighter version of theme color
+  const descriptionTextColorClass = isRoot ? 'text-primary-foreground/90' : 'text-accent-foreground/90';
+
+
   const refCallback = React.useCallback((element: HTMLDivElement | null) => {
     domRefCallback(node.id, element);
   }, [domRefCallback, node.id]);
@@ -84,19 +75,14 @@ const NodeCardComponent = ({
     <div
       id={`node-${node.id}`}
       ref={refCallback}
-      className={cn(
-        "node-card-draggable", 
-        "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2",
-        borderClass, // Apply theme or custom border color
-        className
-      )}
-      style={{ ...cardPositionStyle, ...cardStyle }} 
+      className={cn("node-card-draggable", currentCardClasses, className)}
+      style={cardPositionStyle} // Only position is now in inline style, bg/border from classes
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => e.stopPropagation()} 
       onMouseDown={(e) => e.stopPropagation()} 
     >
-      <div className={cn("flex items-center justify-between px-4 py-2 rounded-t-2xl", headerTextColorClass)} >
+      <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
           {node.emoji && <span className="text-xl mr-1.5 flex-shrink-0 select-none">{node.emoji}</span>}
           <h3 className={cn("text-lg font-semibold truncate")} title={node.title}>
@@ -122,9 +108,12 @@ const NodeCardComponent = ({
         </div>
       </div>
       
+      {/* Image URL display logic removed */}
+      
       <div className={cn(
-          "px-4 py-3 flex-grow rounded-b-2xl",
-          "bg-slate-50 text-slate-700", // Always light theme for description box
+          "px-4 py-3 flex-grow",
+          descriptionBgClass, 
+          descriptionTextColorClass,
           !node.description && "min-h-[24px]" 
       )}>
         {node.description ? (
@@ -135,6 +124,8 @@ const NodeCardComponent = ({
       </div>
     </div>
   );
-};
+});
 
-export const NodeCard = React.memo(NodeCardComponent);
+NodeCardComponent.displayName = 'NodeCardComponent';
+export const NodeCard = NodeCardComponent;
+

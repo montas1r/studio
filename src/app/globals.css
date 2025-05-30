@@ -36,24 +36,19 @@
     --radius: 1rem; /* Default for rounded-lg will be 1rem (like rounded-2xl) */
 
     /* Chart colors - Updated as per user request */
-    --chart-1-raw: 210 100% 50%;
-    --chart-1: var(--chart-1-raw);
+    --chart-1: 210 100% 50%;
     --chart-1-foreground: 0 0% 98%; 
     
-    --chart-2-raw: 120 70% 40%;
-    --chart-2: var(--chart-2-raw);
+    --chart-2: 120 70% 40%;
     --chart-2-foreground: 0 0% 98%; 
 
-    --chart-3-raw: 300 60% 60%;
-    --chart-3: var(--chart-3-raw);
+    --chart-3: 300 60% 60%;
     --chart-3-foreground: 0 0% 98%; 
 
-    --chart-4-raw: 48 94% 68%;
-    --chart-4: var(--chart-4-raw);
+    --chart-4: 48 94% 68%;
     --chart-4-foreground: 0 0% 10%;  
 
-    --chart-5-raw: 10 80% 55%;
-    --chart-5: var(--chart-5-raw);
+    --chart-5: 10 80% 55%;
     --chart-5-foreground: 0 0% 10%;  
 
     /* Sidebar specific colors - Adjusted for new dark theme */
@@ -97,24 +92,19 @@
     --ring: 250 75% 60%; /* Primary color for rings */
 
     /* Chart colors - Light theme adjustments using new palette values */
-    --chart-1-raw: 210 100% 50%; 
-    --chart-1: var(--chart-1-raw); 
+    --chart-1: 210 100% 50%; 
     --chart-1-foreground: 0 0% 10%;
 
-    --chart-2-raw: 120 70% 40%;
-    --chart-2: var(--chart-2-raw);
+    --chart-2: 120 70% 40%;
     --chart-2-foreground: 0 0% 100%;
 
-    --chart-3-raw: 300 60% 60%;
-    --chart-3: var(--chart-3-raw); 
+    --chart-3: 300 60% 60%;
     --chart-3-foreground: 0 0% 100%;
 
-    --chart-4-raw: 48 94% 68%;
-    --chart-4: var(--chart-4-raw);  
+    --chart-4: 48 94% 68%;
     --chart-4-foreground: 0 0% 10%;
 
-    --chart-5-raw: 10 80% 55%;
-    --chart-5: var(--chart-5-raw); 
+    --chart-5: 10 80% 55%;
     --chart-5-foreground: 0 0% 10%;
 
      /* Sidebar specific colors - Light theme */

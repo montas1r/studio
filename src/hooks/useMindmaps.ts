@@ -1,40 +1,48 @@
 
 "use client";
 
-import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput, PaletteColorKey } from '@/types/mindmap';
-import { useState, useEffect, useCallback } from 'react';
+import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput } from '@/types/mindmap';
+import { useState, useEffect, useCallback }
+from 'react';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
+// Moved constants inside the hook as per previous fix for initialization errors
 export function useMindmaps() {
-  // Constants moved inside the hook to ensure NODE_CARD_WIDTH is initialized
   const NODE_CARD_WIDTH = 300;
-  const INITIAL_ROOT_X = 2350; // (5000/2) - (300/2) for v0.0.3 target; using a large canvas
-  const INITIAL_ROOT_Y = 100;    // For v0.0.3 target
+  const LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT = 5000; // As per v0.0.3 logical canvas
+  const Y_OFFSET_FOR_FIRST_ROOT = 100;
   const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
-  const CHILD_X_OFFSET = 0; // Children directly below parent
-  const CHILD_Y_OFFSET = 180; // Vertical spacing between parent and child
+  const CHILD_X_OFFSET = 0;
+  const CHILD_Y_OFFSET = 180; // Includes approx node height + spacing
+
 
   const getApproxNodeHeight = useCallback((node: Partial<NodeData> | null): number => {
-    if (!node) return 120;
-    let height = 70; 
-    
+    if (!node) return 120; // Default height if no node data
+    let height = 20; // Base padding (top+bottom for content)
+
+    // Header height (title + buttons)
+    height += 40; // Approximate height for header (py-2 + button heights)
+
     if (node.title) {
-      const titleCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 16 - (node.emoji ? 32 : 0)) / 10); 
-      const titleLines = Math.ceil((node.title.length / titleCharsPerLine)) + (node.title.split('\\n').length -1);
-      height += Math.max(28, titleLines * 28);
+      const titleCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 16 - (node.emoji ? 32 : 0) - 70 /* buttons space */) / 9); // Avg char width ~9px for text-lg
+      const titleLines = Math.ceil((node.title.length / titleCharsPerLine)) + (node.title.split('\n').length -1);
+      height += Math.max(28, titleLines * 28); // text-lg line height ~28px
     } else {
-      height += 28; 
+      height += 28; // Minimum for one line of title
     }
 
+    // Description box base padding (py-3)
+    height += 24;
+
     if (node.description && node.description.trim() !== "") {
-      const descCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 16) / 8);
-      const descLines = Math.ceil((node.description.length / descCharsPerLine)) + (node.description.split('\\n').length -1);
-      height += Math.max(20, descLines * 20);
+      const descCharsPerLine = Math.max(1, (NODE_CARD_WIDTH - 2 * 16) / 7); // Avg char width ~7px for text-sm
+      const descLines = Math.ceil((node.description.length / descCharsPerLine)) + (node.description.split('\n').length -1);
+      height += Math.max(20, descLines * 20); // text-sm line height ~20px
     } else {
-       height += 24; 
+       height += 20; // Minimum height for description area even if empty
     }
-    return Math.max(90, height); // Adjusted minimum for v0.0.5
+    return Math.max(90, height); // Ensure a minimum functional height
   }, [NODE_CARD_WIDTH]);
 
 
@@ -45,7 +53,7 @@ export function useMindmaps() {
     const loadedMindmaps = getMindmapsFromStorage();
     setMindmaps(loadedMindmaps.map(m => {
       const migratedNodes: NodesObject = {};
-      let nextRootX = INITIAL_ROOT_X + ROOT_X_SPACING;
+      let nextRootX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2) + ROOT_X_SPACING;
 
       const rootsToProcess = Array.isArray(m.data.rootNodeIds) ? [...m.data.rootNodeIds] : [];
       
@@ -56,11 +64,10 @@ export function useMindmaps() {
         let x, y;
         if (node.x === undefined || node.y === undefined) {
           if (parentNode) { 
-            const parentX = parentNode.x ?? INITIAL_ROOT_X;
-            const parentY = parentNode.y ?? INITIAL_ROOT_Y;
+            const parentX = parentNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+            const parentY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
             const parentNodeHeight = getApproxNodeHeight(parentNode);
             
-            x = parentX + CHILD_X_OFFSET; 
             y = parentY + parentNodeHeight + CHILD_Y_OFFSET;
             
             const childrenCount = parentNode.childIds?.length || 0;
@@ -68,23 +75,23 @@ export function useMindmaps() {
                 const totalWidthOfChildren = childrenCount * NODE_CARD_WIDTH + (childrenCount -1) * 30;
                 const startX = parentX + (NODE_CARD_WIDTH / 2) - (totalWidthOfChildren / 2);
                 x = startX + siblingIndex * (NODE_CARD_WIDTH + 30);
-            } else if (childrenCount === 1){
-                x = parentX;
+            } else { // handles 0 or 1 child
+                x = parentX + CHILD_X_OFFSET;
             }
           } else { 
             if (isFirstRootOfMap) {
-                x = INITIAL_ROOT_X;
-                y = INITIAL_ROOT_Y;
+                x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+                y = Y_OFFSET_FOR_FIRST_ROOT;
             } else {
                 x = nextRootX;
-                y = INITIAL_ROOT_Y; 
+                y = Y_OFFSET_FOR_FIRST_ROOT; 
                 nextRootX += ROOT_X_SPACING;
             }
           }
           migratedNodes[nodeId] = { ...node, x, y };
         } else {
           migratedNodes[nodeId] = { ...node };
-          if (!parentNode && node.x >= nextRootX && node.x !== INITIAL_ROOT_X) { 
+          if (!parentNode && node.x !== undefined && node.x >= nextRootX && node.x !== ((LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2))) { 
             nextRootX = node.x + ROOT_X_SPACING;
           }
         }
@@ -104,7 +111,7 @@ export function useMindmaps() {
            migratedNodes[nodeId] = { 
             ...node, 
             x: node.x === undefined ? nextRootX : node.x, 
-            y: node.y === undefined ? INITIAL_ROOT_Y : node.y 
+            y: node.y === undefined ? Y_OFFSET_FOR_FIRST_ROOT : node.y 
           };
           if (node.x === undefined && !node.parentId) nextRootX += ROOT_X_SPACING;
         }
@@ -121,7 +128,7 @@ export function useMindmaps() {
       };
     }));
     setIsLoading(false);
-  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, INITIAL_ROOT_X, INITIAL_ROOT_Y, NODE_CARD_WIDTH, ROOT_X_SPACING, getApproxNodeHeight]);
+  }, [CHILD_X_OFFSET, CHILD_Y_OFFSET, Y_OFFSET_FOR_FIRST_ROOT, NODE_CARD_WIDTH, ROOT_X_SPACING, getApproxNodeHeight, LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -149,12 +156,18 @@ export function useMindmaps() {
     return mindmaps.find(m => m.id === id);
   }, [mindmaps]);
 
-  const updateMindmap = useCallback((id: string, updatedData: Partial<Omit<Mindmap, 'id' | 'createdAt'>>) => {
+  const updateMindmap = useCallback((id: string, updatedData: Partial<Omit<Mindmap, 'id' | 'createdAt'>>): Mindmap | undefined => {
+    let changedMindmap: Mindmap | undefined;
     setMindmaps(prev =>
-      prev.map(m =>
-        m.id === id ? { ...m, ...updatedData, updatedAt: new Date().toISOString() } : m
-      )
+      prev.map(m => {
+        if (m.id === id) {
+          changedMindmap = { ...m, ...updatedData, updatedAt: new Date().toISOString() };
+          return changedMindmap;
+        }
+        return m;
+      })
     );
+    return changedMindmap;
   }, []);
 
   const deleteMindmap = useCallback((id: string) => {
@@ -178,42 +191,41 @@ export function useMindmaps() {
     } else if (parentId) {
       const parentNode = currentNodes[parentId];
       if (parentNode) {
-        const parentNodeX = parentNode.x ?? INITIAL_ROOT_X;
-        const parentNodeY = parentNode.y ?? INITIAL_ROOT_Y;
+        const parentNodeX = parentNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+        const parentNodeY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
         const parentNodeHeight = getApproxNodeHeight(parentNode);
         const siblingCount = (parentNode.childIds || []).length;
 
-        x = parentNodeX + CHILD_X_OFFSET; 
         y = parentNodeY + parentNodeHeight + CHILD_Y_OFFSET;
 
         if (siblingCount > 0) {
-           const totalWidthOfChildren = (siblingCount + 1) * NODE_CARD_WIDTH + siblingCount * 30;
+           const totalWidthOfChildren = (siblingCount + 1) * NODE_CARD_WIDTH + siblingCount * 30; // 30px spacing
            const startX = parentNodeX + (NODE_CARD_WIDTH / 2) - (totalWidthOfChildren / 2);
            x = startX + siblingCount * (NODE_CARD_WIDTH + 30);
         } else {
-           x = parentNodeX;
+           x = parentNodeX + CHILD_X_OFFSET;
         }
       } else { 
         parentId = null; 
         if (existingRootNodes.length > 0) {
-          const lastRootNode = existingRootNodes.reduce((latest, node) => (node.x !== undefined && (latest.x === undefined || node.x > latest.x)) ? node : latest, existingRootNodes[0]!);
-          x = (lastRootNode.x ?? INITIAL_ROOT_X) + ROOT_X_SPACING;
-          y = INITIAL_ROOT_Y;
+          const lastRootNode = existingRootNodes.reduce((latest, node) => ((node.x !== undefined && latest.x !== undefined && node.x > latest.x) || latest.x === undefined) ? node : latest, existingRootNodes[0]!);
+          x = (lastRootNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2)) + ROOT_X_SPACING;
+          y = Y_OFFSET_FOR_FIRST_ROOT;
         } else {
-          x = INITIAL_ROOT_X;
-          y = INITIAL_ROOT_Y;
+          x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+          y = Y_OFFSET_FOR_FIRST_ROOT;
         }
       }
     } else { 
       if (existingRootNodes.length > 0) {
          const lastRootNode = existingRootNodes.reduce((latest, node) => {
-              return (node.x !== undefined && (latest.x === undefined || node.x > latest.x)) ? node : latest;
+              return ((node.x !== undefined && latest.x !== undefined && node.x > latest.x) || latest.x === undefined) ? node : latest;
          }, existingRootNodes[0]!);
-         x = (lastRootNode?.x ?? (INITIAL_ROOT_X - ROOT_X_SPACING) ) + ROOT_X_SPACING;
-         y = INITIAL_ROOT_Y;
+         x = (lastRootNode?.x ?? ((LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2) - ROOT_X_SPACING) ) + ROOT_X_SPACING;
+         y = Y_OFFSET_FOR_FIRST_ROOT;
       } else { 
-        x = INITIAL_ROOT_X;
-        y = INITIAL_ROOT_Y;
+        x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
+        y = Y_OFFSET_FOR_FIRST_ROOT;
       }
     }
 
@@ -226,7 +238,7 @@ export function useMindmaps() {
       childIds: [],
       x: x,
       y: y,
-      customBackgroundColor: nodeDetails.customBackgroundColor === 'no-custom-color' ? undefined : nodeDetails.customBackgroundColor,
+      // customBackgroundColor removed
     };
 
     const updatedNodes = { ...currentNodes, [newNodeId]: newNode };
@@ -245,7 +257,7 @@ export function useMindmaps() {
     }
     updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
     return newNode;
-  }, [getMindmapById, updateMindmap, getApproxNodeHeight, NODE_CARD_WIDTH, INITIAL_ROOT_X, INITIAL_ROOT_Y, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET]);
+  }, [getMindmapById, updateMindmap, getApproxNodeHeight, NODE_CARD_WIDTH, Y_OFFSET_FOR_FIRST_ROOT, ROOT_X_SPACING, CHILD_X_OFFSET, CHILD_Y_OFFSET, LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT]);
 
 
   const updateNode = useCallback((mindmapId: string, nodeId: string, updates: EditNodeInput) => {
@@ -258,7 +270,7 @@ export function useMindmaps() {
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      customBackgroundColor: updates.customBackgroundColor === 'no-custom-color' ? undefined : updates.customBackgroundColor,
+      // customBackgroundColor removed
     };
 
     const updatedNodes = {
@@ -268,15 +280,13 @@ export function useMindmaps() {
     updateMindmap(mindmapId, { data: { ...mindmap.data, nodes: updatedNodes }});
   }, [getMindmapById, updateMindmap]);
 
-  const updateNodePosition = useCallback((mindmapId: string, nodeId: string, x: number, y: number) => {
+  const updateNodePosition = useCallback((mindmapId: string, nodeId: string, x: number, y: number): Mindmap | undefined => {
     const mindmap = getMindmapById(mindmapId);
-    if (!mindmap || !mindmap.data.nodes[nodeId]) return;
+    if (!mindmap || !mindmap.data.nodes[nodeId]) return undefined;
 
     const updatedNode = { ...mindmap.data.nodes[nodeId], x, y };
     const updatedNodes = { ...mindmap.data.nodes, [nodeId]: updatedNode };
-    updateMindmap(mindmapId, { data: { ...mindmap.data, nodes: updatedNodes }});
-    // Return the mindmap to ensure MindmapEditor gets the new reference
-    return { ...mindmap, data: { ...mindmap.data, nodes: updatedNodes }, updatedAt: new Date().toISOString() };
+    return updateMindmap(mindmapId, { data: { ...mindmap.data, nodes: updatedNodes }});
   }, [getMindmapById, updateMindmap]);
 
 
