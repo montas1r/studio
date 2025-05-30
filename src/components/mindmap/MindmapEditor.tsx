@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import type { Mindmap, NodeData, EditNodeInput } from '@/types/mindmap';
+import type { Mindmap, NodeData, EditNodeInput, NodesObject } from '@/types/mindmap';
 import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,42 +26,27 @@ import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-const CANVAS_CONTENT_WIDTH_STR = '2000px'; 
-const CANVAS_CONTENT_HEIGHT_STR = '2000px'; 
-
 const FIXED_VIEWPORT_WIDTH = 1200;
 const FIXED_VIEWPORT_HEIGHT = 800;
+const CANVAS_CONTENT_WIDTH_STR = '2000px'; 
+const CANVAS_CONTENT_HEIGHT_STR = '2000px';
 
 const deepClone = <T,>(obj: T): T => {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
-  // Using structuredClone for a more robust deep clone if available
-  if (typeof structuredClone === 'function') {
-    try {
-      return structuredClone(obj);
-    } catch (e) {
-      // Fallback for environments where structuredClone might fail for certain types
-      // or if it's not available (though it's widely supported now).
-    }
-  }
-  // Fallback to JSON.parse(JSON.stringify())
   try {
     return JSON.parse(JSON.stringify(obj));
   } catch (e) {
-    console.error("Deep clone failed:", e);
-    // As a last resort, return a shallow copy or the original object,
-    // though this might lead to issues in undo/redo.
-    // For simple data structures, this might be acceptable if JSON methods fail.
+    console.error("Deep clone failed, falling back to shallow copy:", e);
     if (Array.isArray(obj)) {
       return [...obj] as any as T;
     } else if (typeof obj === 'object') {
       return { ...obj } as T;
     }
-    return obj; // Should not happen for typical mindmap data
+    return obj;
   }
 };
-
 
 interface WireDrawData {
   key: string;
@@ -125,21 +110,21 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const currentMap = nodeElementsRef.current;
     const nodeExisted = currentMap.has(nodeId);
     const oldElement = currentMap.get(nodeId);
-
+  
+    let changed = false;
     if (element) {
       if (!nodeExisted || oldElement !== element) {
         currentMap.set(nodeId, element);
-        setWireRecalcTrigger(prev => prev + 1); 
-      } else if (nodeExisted && oldElement === element) {
-        // Element reference hasn't changed, no need to trigger unless explicitly desired for updates
-        // Potentially, we might still want to update if content inside changes affecting size,
-        // but that's harder to track directly here.
+        changed = true;
       }
     } else {
       if (nodeExisted) {
         currentMap.delete(nodeId);
-        setWireRecalcTrigger(prev => prev + 1);
+        changed = true;
       }
+    }
+    if (changed) {
+      setWireRecalcTrigger(prev => prev + 1);
     }
   }, []);
 
@@ -153,10 +138,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const scaledCanvasWidth = canvasNumericWidth * currentScale;
     const scaledCanvasHeight = canvasNumericHeight * currentScale;
     
-    // If scaled canvas is wider than viewport, clamp so edges don't go past viewport
     if (scaledCanvasWidth > viewportRect.width) {
       clampedX = Math.min(0, Math.max(newPanX, viewportRect.width - scaledCanvasWidth));
-    } else { // If scaled canvas is narrower, allow it to be anywhere within viewport
+    } else { 
       clampedX = Math.max(0, Math.min(newPanX, viewportRect.width - scaledCanvasWidth));
     }
 
@@ -199,7 +183,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const viewportRect = viewportContainerRef.current.getBoundingClientRect();
 
     if (allNodesArray.length === 0) {
-        const initialScale = 0.75; // Default scale for empty canvas
+        const initialScale = 0.75; 
         const newPanX = (viewportRect.width - canvasNumericWidth * initialScale) / 2;
         const newPanY = (viewportRect.height - canvasNumericHeight * initialScale) / 2;
         const clamped = clampPan(newPanX, newPanY, initialScale);
@@ -225,18 +209,18 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (contentWidth > 0 && contentHeight > 0) {
         const targetViewportWidth = viewportRect.width - 2 * PADDING;
         const targetViewportHeight = viewportRect.height - 2 * PADDING;
-        if (targetViewportWidth <=0 || targetViewportHeight <=0) { // Avoid division by zero or negative
-            newFitScale = 0.25; // Fallback to min scale
+        if (targetViewportWidth <=0 || targetViewportHeight <=0) { 
+            newFitScale = 0.25; 
         } else {
             const scaleX = targetViewportWidth / contentWidth;
             const scaleY = targetViewportHeight / contentHeight;
-            newFitScale = Math.min(scaleX, scaleY, 2.0); // Cap at max zoom
+            newFitScale = Math.min(scaleX, scaleY, 2.0); 
         }
     } else { 
         newFitScale = 0.75; 
     }
     
-    newFitScale = Math.max(0.25, newFitScale); // Ensure min zoom
+    newFitScale = Math.max(0.25, newFitScale);
 
     const contentCenterX_logical = minX + contentWidth / 2;
     const contentCenterY_logical = minY + contentHeight / 2;
@@ -270,12 +254,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   useEffect(() => {
     if (mindmap?.data) {
         if(undoStack.length === 0 && redoStack.length === 0 && Object.keys(mindmap.data.nodes).length > 0) { 
-            // Only set initial undo state if there are nodes, to avoid saving an "empty" initial state for a new mindmap
             setUndoStack([deepClone(mindmap.data)]);
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mindmapId, mindmap?.data]); // mindmap?.data ensures this runs if data structure changes
+  }, [mindmapId, mindmap?.data]); 
 
   const handleUndo = useCallback(() => {
     if (!mindmap || undoStack.length === 0) return; 
@@ -287,6 +270,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     setUndoStack(prev => prev.slice(0, -1));
     
     updateMindmap(mindmap.id, { data: previousData });
+    setWireRecalcTrigger(prev => prev + 1); // Ensure wires update
   }, [mindmap, undoStack, updateMindmap]);
 
   const handleRedo = useCallback(() => {
@@ -297,6 +281,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     setRedoStack(prev => prev.slice(1));
     
     updateMindmap(mindmap.id, { data: nextData });
+    setWireRecalcTrigger(prev => prev + 1); // Ensure wires update
   }, [mindmap, redoStack, undoStack, updateMindmap]);
 
 
@@ -324,7 +309,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleUndo, handleRedo]);
-
 
   const handlePanMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (activeTool !== 'pan' || !viewportContainerRef.current) return;
@@ -402,7 +386,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const touches = event.touches;
     const targetIsNode = (event.target as HTMLElement).closest('.node-card-draggable');
 
-    if (targetIsNode) return; // Don't pan/zoom if touch starts on a node
+    if (targetIsNode && activeTool !== 'pan') return; 
     
     if (touches.length === 1 && activeTool === 'pan') {
       event.preventDefault();
@@ -410,7 +394,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       panStartRef.current = { mouseX: touches[0].clientX, mouseY: touches[0].clientY, panX: pan.x, panY: pan.y };
     } else if (touches.length === 2) { 
       event.preventDefault();
-      setIsPanning(false); // Stop any single-touch pan
+      setIsPanning(false); 
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
       pinchStartDistRef.current = Math.sqrt(dx * dx + dy * dy);
@@ -427,9 +411,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (!viewportContainerRef.current) return;
     const touches = event.touches;
-     const targetIsNode = (event.target as HTMLElement).closest('.node-card-draggable');
-    if (targetIsNode) return;
-
+    const targetIsNode = (event.target as HTMLElement).closest('.node-card-draggable');
+    if (targetIsNode && activeTool !== 'pan') return;
 
     if (touches.length === 1 && isPanning && panStartRef.current && activeTool === 'pan') {
       event.preventDefault();
@@ -475,13 +458,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const nodeCenterX_logical = newRootNode.x + NODE_CARD_WIDTH / 2;
       const nodeCenterY_logical = newRootNode.y + getApproxNodeHeight(newRootNode) / 2;
       
-      // Pan to center the new node, maintaining current scale
-      const currentScale = scale; 
-      const newPanX = viewportRect.width / 2 - nodeCenterX_logical * currentScale;
-      const newPanY = viewportRect.height / 2 - nodeCenterY_logical * currentScale;
-      setPan(clampPan(newPanX, newPanY, currentScale));
+      const newScale = scale; 
+      const newPanX = viewportRect.width / 2 - nodeCenterX_logical * newScale;
+      const newPanY = viewportRect.height / 2 - nodeCenterY_logical * newScale;
+      setPan(clampPan(newPanX, newPanY, newScale));
+      setWireRecalcTrigger(prev => prev + 1);
     }
-  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, getApproxNodeHeight, NODE_CARD_WIDTH, beforeMutation, scale, pan, clampPan]);
+  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, getApproxNodeHeight, NODE_CARD_WIDTH, beforeMutation, scale, clampPan]);
 
 
   const handleAddChildNode = useCallback((parentId: string) => {
@@ -489,8 +472,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
     
-    // Calculate a reasonable default position for the new child node
-    // This uses the useMindmaps hook's logic for initial placement
     const tempNewNode: NodeData = {
       id: `temp-${uuidv4()}`, 
       title: '', 
@@ -498,8 +479,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       emoji: "➕", 
       parentId: parentId,
       childIds: [],
-      x: parentNode.x, // Will be refined by addNode if not explicitly set during save
-      y: parentNode.y + getApproxNodeHeight(parentNode) + 50, // Approx. below parent
+      x: parentNode.x, 
+      y: parentNode.y + getApproxNodeHeight(parentNode) + 50, 
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
@@ -514,19 +495,23 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!mindmap || !editingNode) return; 
     beforeMutation();
 
+    let savedNode: NodeData | undefined;
     if (editingNode.id.startsWith('temp-')) { 
-      // If it's a temporary node, use its parentId and potentially its temp x,y for addNode
-      const permanentNode = addNode(mindmap.id, editingNode.parentId, data, editingNode.x, editingNode.y);
-      if (permanentNode) {
-        toast({ title: "Node Created", description: `Node "${permanentNode.title}" added.` });
+      savedNode = addNode(mindmap.id, editingNode.parentId, data, editingNode.x, editingNode.y);
+      if (savedNode) {
+        toast({ title: "Node Created", description: `Node "${savedNode.title}" added.` });
       }
     } else { 
       updateNodeDataHook(mindmap.id, editingNode.id, data);
+      // For consistency, get the updated node data to show in toast
+      const potentiallyUpdatedMindmap = getMindmapById(mindmapId);
+      savedNode = potentiallyUpdatedMindmap?.data.nodes[editingNode.id];
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
     setEditingNode(null); 
     setIsEditDialogOpen(false); 
-  }, [mindmap, editingNode, addNode, updateNodeDataHook, toast, beforeMutation]);
+    if (savedNode) setWireRecalcTrigger(prev => prev + 1);
+  }, [mindmap, editingNode, addNode, updateNodeDataHook, toast, beforeMutation, getMindmapById, mindmapId]);
 
 
   const requestDeleteNode = useCallback((nodeId: string) => {
@@ -545,6 +530,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     toast({ title: "Node Deleted", description: `Node "${nodeToDelete.title || 'Untitled'}" removed.`, variant: "destructive" });
     setIsDeleteDialogOpen(false);
     setNodeToDelete(null);
+    setWireRecalcTrigger(prev => prev + 1);
   }, [mindmap, nodeToDelete, deleteNodeFromHook, toast, beforeMutation]);
 
 
@@ -553,14 +539,10 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         event.preventDefault();
         return;
     }
-    if (!viewportContainerRef.current || !canvasContentRef.current) return;
-
     const nodeElement = nodeElementsRef.current.get(nodeId);
     if (!nodeElement) return;
     
     const nodeRect = nodeElement.getBoundingClientRect(); 
-    
-    // Calculate offset within the node, relative to its unscaled appearance
     const logicalDragOffsetX = (event.clientX - nodeRect.left) / scale;
     const logicalDragOffsetY = (event.clientY - nodeRect.top) / scale;
     
@@ -596,10 +578,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     newY_logical = Math.max(0, Math.min(newY_logical, canvasNumericHeight - approxNodeHeight));
     
     beforeMutation();
-    const updatedMindmapData = updateNodePosition(mindmap.id, nodeId, newX_logical, newY_logical);
-    if (updatedMindmapData) { 
-      setWireRecalcTrigger(prev => prev + 1); // Explicitly trigger wire recalc
-    }
+    updateNodePosition(mindmap.id, nodeId, newX_logical, newY_logical);
+    setWireRecalcTrigger(prev => prev + 1); 
     dragDataRef.current = null; 
   }, [mindmap, updateNodePosition, pan, scale, activeTool, beforeMutation, NODE_CARD_WIDTH, canvasNumericWidth, canvasNumericHeight, getApproxNodeHeight]);
 
@@ -629,7 +609,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const newWiresArray: WireDrawData[] = [];
       const viewportRect = viewportContainerRef.current.getBoundingClientRect();
       
-      allNodes.forEach(node => {
+      Object.values(mindmap.data.nodes).forEach(node => {
         if (!node.parentId || !mindmap.data.nodes[node.parentId!]) return;
 
         const parentNode = mindmap.data.nodes[node.parentId!];
@@ -645,7 +625,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           const childAnchorX_screen = childRect.left + childRect.width / 2;
           const childAnchorY_screen = childRect.top;
 
-          // Convert screen coords to logical coords relative to the transformed canvasContentRef
           const parentAnchorX_logical = round((parentAnchorX_screen - viewportRect.left - pan.x) / scale);
           const parentAnchorY_logical = round((parentAnchorY_screen - viewportRect.top - pan.y) / scale);
           const childAnchorX_logical = round((childAnchorX_screen - viewportRect.left - pan.x) / scale);
@@ -659,7 +638,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           const curveOffsetY = Math.max(30, Math.abs(cAY - pAY) / 2.5); 
           const d = `M ${pAX} ${pAY} C ${pAX} ${round(pAY + curveOffsetY)}, ${cAX} ${round(cAY - curveOffsetY)}, ${cAX} ${cAY}`;
           
-          // Wire coloring logic for v0.0.5 (no custom node color)
           let strokeColor = parentNode.parentId === null ? "hsl(var(--primary))" : "hsl(var(--accent))";
           
           newWiresArray.push({ key: `${parentNode.id}-${node.id}`, d, stroke: strokeColor });
@@ -675,7 +653,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [mindmap, allNodes, pan, scale, wireRecalcTrigger, getApproxNodeHeight]); // Added getApproxNodeHeight
+  }, [mindmap, pan, scale, wireRecalcTrigger, getApproxNodeHeight, NODE_CARD_WIDTH]); 
 
 
   if (!mindmap) {
@@ -725,7 +703,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         <div className="flex-grow flex items-center justify-center p-0 bg-background"> 
           <div
             ref={viewportContainerRef}
-            className="bg-card shadow-2xl relative border-2 border-dashed border-sky-300" // For v0.0.4
+            className="bg-card shadow-2xl relative" 
             style={{
               width: `${FIXED_VIEWPORT_WIDTH}px`, 
               height: `${FIXED_VIEWPORT_HEIGHT}px`, 
@@ -742,13 +720,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           >
             <div
               ref={canvasContentRef} 
-              className="absolute top-0 left-0" // No border, bg-card handled by parent
+              className="absolute top-0 left-0 bg-card border-2 border-dashed border-sky-300"
               style={{
                 width: CANVAS_CONTENT_WIDTH_STR, 
                 height: CANVAS_CONTENT_HEIGHT_STR,
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
                 transformOrigin: '0 0', 
-                pointerEvents: 'auto', // Must allow pointer events for node interaction
+                pointerEvents: 'auto',
               }}
             >
               <svg
@@ -775,7 +753,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   onAddChild={handleAddChildNode}
                   onDragStart={(e, id) => handleNodeDragStart(e, id)}
                   className="node-card-draggable" 
-                  domRefCallback={setNodeElementRef}
+                  domRefCallback={(element) => setNodeElementRef(nodeData.id, element)}
                 />
               ))}
 
@@ -825,4 +803,3 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </TooltipProvider>
   );
 }
-

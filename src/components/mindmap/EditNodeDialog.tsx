@@ -14,10 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-// Select component removed as custom color palette is removed
 import type { EditNodeInput, NodeData } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2 } from 'lucide-react'; // Palette icon removed
+import { Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EditNodeDialogProps {
@@ -27,13 +26,10 @@ interface EditNodeDialogProps {
   onSave: (nodeId: string, data: EditNodeInput) => void;
 }
 
-// PALETTE_OPTIONS removed
-
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
-  // customBackgroundColor state removed
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -42,12 +38,10 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
-      // customBackgroundColor logic removed
     } else {
       setTitle('');
       setDescription('');
       setEmoji('');
-      // customBackgroundColor logic removed
     }
   }, [node]);
 
@@ -57,7 +51,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         title: title.trim(),
         description,
         emoji: emoji.trim() || undefined,
-        // customBackgroundColor logic removed
       });
       onOpenChange(false); 
     }
@@ -152,7 +145,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-           {/* Node Color Select dropdown removed */}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

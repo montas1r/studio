@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { NodeData } from '@/types/mindmap'; // PaletteColorKey removed
+import type { NodeData } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React from 'react'; 
@@ -36,35 +36,20 @@ const NodeCardComponent = React.memo(({
     width: '300px', 
   };
 
-  const cardStyle: React.CSSProperties = {};
-  let headerTextColorClass = "";
-  let buttonTextColorClass = "";
-  let buttonHoverBgClass = "";
-  let cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
-  let currentCardClasses = "";
+  // Base classes for all nodes
+  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
   
-  // Default theme-based styling
-  if (isRoot) {
-    cardStyle.backgroundColor = `hsl(var(--primary))`;
-    cardStyle.borderColor = `hsl(var(--primary))`;
-    headerTextColorClass = "text-primary-foreground";
-    buttonTextColorClass = "text-primary-foreground";
-    buttonHoverBgClass = "hover:bg-black/20";
-    currentCardClasses = cn(cardBaseClasses, "border-primary bg-primary");
-  } else {
-    cardStyle.backgroundColor = `hsl(var(--accent))`;
-    cardStyle.borderColor = `hsl(var(--accent))`;
-    headerTextColorClass = "text-accent-foreground";
-    buttonTextColorClass = "text-accent-foreground";
-    buttonHoverBgClass = "hover:bg-black/20";
-    currentCardClasses = cn(cardBaseClasses, "border-accent bg-accent");
-  }
-  
-  // Removed customBackgroundColor logic, inline styles simplified
-  // The className now handles the default theme bg and border
+  // Determine theme-based classes (these act as fallbacks if no custom color)
+  const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
+  const themeBorderClass = isRoot ? "border-primary" : "border-accent";
+  const themeHeaderTextColorClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
+  const themeButtonHoverBgClass = "hover:bg-black/20";
 
-  const descriptionBgClass = isRoot ? 'bg-primary/10' : 'bg-accent/10'; // Lighter version of theme color
-  const descriptionTextColorClass = isRoot ? 'text-primary-foreground/90' : 'text-accent-foreground/90';
+  const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
+  
+  // Description box styling (always light themed for readability)
+  const descriptionBgClass = 'bg-primary/10'; // Example using primary, could be a fixed light color
+  const descriptionTextColorClass = 'text-primary-foreground/90';
 
 
   const refCallback = React.useCallback((element: HTMLDivElement | null) => {
@@ -75,14 +60,14 @@ const NodeCardComponent = React.memo(({
     <div
       id={`node-${node.id}`}
       ref={refCallback}
-      className={cn("node-card-draggable", currentCardClasses, className)}
-      style={cardPositionStyle} // Only position is now in inline style, bg/border from classes
+      className={currentCardClasses}
+      style={cardPositionStyle}
       draggable
       onDragStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => e.stopPropagation()} 
       onMouseDown={(e) => e.stopPropagation()} 
     >
-      <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
+      <div className={cn("flex items-center justify-between px-4 py-2", themeHeaderTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
           {node.emoji && <span className="text-xl mr-1.5 flex-shrink-0 select-none">{node.emoji}</span>}
           <h3 className={cn("text-lg font-semibold truncate")} title={node.title}>
@@ -90,10 +75,10 @@ const NodeCardComponent = React.memo(({
           </h3>
         </div>
         <div className="flex items-center space-x-0.5 flex-shrink-0 ml-2">
-          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className={cn("h-7 w-7", buttonTextColorClass, buttonHoverBgClass)}>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(node)} aria-label="Edit node" className={cn("h-7 w-7", themeHeaderTextColorClass, themeButtonHoverBgClass)}>
             <Edit3 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", buttonTextColorClass, buttonHoverBgClass)} aria-label="Add child node">
+          <Button variant="ghost" size="icon" onClick={() => onAddChild(node.id)} className={cn("h-7 w-7", themeHeaderTextColorClass, themeButtonHoverBgClass)} aria-label="Add child node">
             <PlusCircle className="h-4 w-4" />
           </Button>
           <Button
@@ -101,14 +86,12 @@ const NodeCardComponent = React.memo(({
             size="icon"
             onClick={() => onDelete(node.id)}
             aria-label="Delete node"
-            className={cn("h-7 w-7 hover:bg-destructive hover:text-destructive-foreground", buttonTextColorClass)}
+            className={cn("h-7 w-7 hover:bg-destructive hover:text-destructive-foreground", themeHeaderTextColorClass)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      
-      {/* Image URL display logic removed */}
       
       <div className={cn(
           "px-4 py-3 flex-grow",
@@ -128,4 +111,3 @@ const NodeCardComponent = React.memo(({
 
 NodeCardComponent.displayName = 'NodeCardComponent';
 export const NodeCard = NodeCardComponent;
-

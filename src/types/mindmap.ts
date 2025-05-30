@@ -1,5 +1,5 @@
 
-// PaletteColorKey is removed as custom node background coloring is removed.
+// PaletteColorKey is removed as custom node background coloring is not in v0.0.5.
 
 export interface NodeData {
   id: string;
@@ -10,8 +10,7 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  // customBackgroundColor?: PaletteColorKey; // Removed
-  // No imageUrl in this version
+  // No customBackgroundColor or imageUrl in v0.0.5
 }
 
 export interface NodesObject {
@@ -42,5 +41,5 @@ export interface EditNodeInput {
   title: string;
   description: string;
   emoji?: string;
-  // customBackgroundColor?: PaletteColorKey | 'no-custom-color'; // Removed
+  // No customBackgroundColor in v0.0.5
 }
