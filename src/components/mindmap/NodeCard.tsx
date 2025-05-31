@@ -4,8 +4,9 @@
 import type { NodeData } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { NODE_CARD_WIDTH } from '@/hooks/useMindmaps'; 
 
 interface NodeCardProps {
   node: NodeData;
@@ -14,6 +15,7 @@ interface NodeCardProps {
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
   onNodeDimensionsChange?: (nodeId: string, dimensions: { width: number; height: number }) => void;
+  onInitiateNodeResize?: (event: React.MouseEvent<HTMLDivElement>, nodeId: string) => void;
   className?: string;
 }
 
@@ -24,6 +26,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onAddChild,
   onDragStart,
   onNodeDimensionsChange,
+  onInitiateNodeResize,
   className,
 }) => {
   const isRoot = !node.parentId;
@@ -33,7 +36,8 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    // Width is now controlled by Tailwind class 'w-80'
+    width: `${node.width ?? NODE_CARD_WIDTH}px`, 
+    height: node.height ? `${node.height}px` : undefined, 
   };
 
   const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
@@ -44,11 +48,14 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
-  // Added w-80 for fixed width of 320px
-  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2 w-80";
+  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('.resize-handle')) {
+      event.preventDefault();
+      return;
+    }
     onDragStart(event, node.id);
   };
 
@@ -56,31 +63,45 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     const currentRef = nodeRef.current;
     if (currentRef && onNodeDimensionsChange) {
       const measureAndReport = () => {
-        // getBoundingClientRect includes border, padding, and content.
-        // For CSS width/height, contentRect from ResizeObserver is more direct if available.
         const { width, height } = currentRef.getBoundingClientRect();
         
         const newWidth = Math.round(width);
         const newHeight = Math.round(height);
 
         if (newWidth > 0 && newHeight > 0) {
-          if (Math.abs((node.width ?? 0) - newWidth) >= 1 || Math.abs((node.height ?? 0) - newHeight) >= 1) {
+          if (Math.abs((node.width ?? NODE_CARD_WIDTH) - newWidth) >= 1 || Math.abs((node.height ?? 0) - newHeight) >= 1) {
             onNodeDimensionsChange(node.id, { width: newWidth, height: newHeight });
           }
         }
       };
       
-      measureAndReport(); // Initial measurement
+      const initialRect = currentRef.getBoundingClientRect();
+      if (initialRect.width > 0 && initialRect.height > 0 && 
+          (!node.width || !node.height || 
+           Math.abs(node.width - initialRect.width) >=1 || 
+           Math.abs(node.height - initialRect.height) >=1 )) {
+         onNodeDimensionsChange(node.id, { width: Math.round(initialRect.width), height: Math.round(initialRect.height) });
+      }
 
       const resizeObserver = new ResizeObserver(measureAndReport);
       resizeObserver.observe(currentRef);
 
       return () => {
-        resizeObserver.unobserve(currentRef);
+        if (currentRef) {
+            resizeObserver.unobserve(currentRef);
+        }
         resizeObserver.disconnect();
       };
     }
   }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange, node.width, node.height]);
+
+
+  const handleResizeMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation(); // Prevent node drag or canvas pan
+    if (onInitiateNodeResize) {
+      onInitiateNodeResize(event, node.id);
+    }
+  };
 
   return (
     <div
@@ -90,8 +111,12 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       style={cardPositionStyle}
       draggable
       onDragStart={handleDragStartInternal}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()} 
+      onMouseDown={(e) => { 
+         if (!(e.target as HTMLElement).closest('.resize-handle')) {
+            e.stopPropagation();
+         }
+      }}
     >
       <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -120,7 +145,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       </div>
 
       <div className={cn(
-          "px-4 py-3 flex-grow",
+          "px-4 py-3 flex-grow", 
           descriptionBgClass,
           descriptionTextColorClass,
           !node.description && "min-h-[24px]" 
@@ -128,9 +153,16 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
         {node.description ? (
           <p className={cn("text-sm whitespace-pre-wrap leading-relaxed break-words")}>{node.description}</p>
         ) : (
-          <div className="h-full"></div>
+          <div className="h-full"></div> 
         )}
       </div>
+      {onInitiateNodeResize && (
+        <div
+          className="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-primary/60 hover:bg-primary active:bg-primary cursor-nwse-resize rounded-tl-md border-l border-t border-primary-foreground/50 z-10"
+          onMouseDown={handleResizeMouseDown}
+          onClick={(e) => e.stopPropagation()} 
+        />
+      )}
     </div>
   );
 });
