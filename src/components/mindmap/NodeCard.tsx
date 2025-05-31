@@ -33,8 +33,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: `${node.width ?? 300}px`, // Use measured width or fallback
-    // height will be auto based on content or set by NodeData.height if we were to use it directly
+    // Width is now controlled by Tailwind class 'w-80'
   };
 
   const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
@@ -45,7 +44,8 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
-  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
+  // Added w-80 for fixed width of 320px
+  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2 w-80";
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
@@ -56,21 +56,21 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     const currentRef = nodeRef.current;
     if (currentRef && onNodeDimensionsChange) {
       const measureAndReport = () => {
+        // getBoundingClientRect includes border, padding, and content.
+        // For CSS width/height, contentRect from ResizeObserver is more direct if available.
         const { width, height } = currentRef.getBoundingClientRect();
-        // Round dimensions to avoid rapid tiny updates if desired, or compare with tolerance
+        
         const newWidth = Math.round(width);
         const newHeight = Math.round(height);
 
         if (newWidth > 0 && newHeight > 0) {
-          // Only report if dimensions changed by at least 1px to prevent potential loops
           if (Math.abs((node.width ?? 0) - newWidth) >= 1 || Math.abs((node.height ?? 0) - newHeight) >= 1) {
             onNodeDimensionsChange(node.id, { width: newWidth, height: newHeight });
           }
         }
       };
       
-      // Initial measurement
-      measureAndReport();
+      measureAndReport(); // Initial measurement
 
       const resizeObserver = new ResizeObserver(measureAndReport);
       resizeObserver.observe(currentRef);
@@ -80,7 +80,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
         resizeObserver.disconnect();
       };
     }
-  }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange, node.width, node.height]); // Re-observe if key content impacting size changes, or if onNodeDimensionsChange itself changes
+  }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange, node.width, node.height]);
 
   return (
     <div
@@ -123,9 +123,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
           "px-4 py-3 flex-grow",
           descriptionBgClass,
           descriptionTextColorClass,
-           // The min-h-[24px] here is for the *content box* of this div.
-           // Combined with py-3 (12px top/bottom padding), the total section height will be at least 48px.
-          !node.description && "min-h-[24px]"
+          !node.description && "min-h-[24px]" 
       )}>
         {node.description ? (
           <p className={cn("text-sm whitespace-pre-wrap leading-relaxed break-words")}>{node.description}</p>
