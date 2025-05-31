@@ -10,7 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 const LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT = 2000;
 const Y_OFFSET_FOR_FIRST_ROOT = 100;
 
-export const NODE_CARD_WIDTH = 320; // Standardized width (w-80)
+export const NODE_CARD_WIDTH = 320; // Standardized width (w-80 from Tailwind = 20rem = 320px)
 const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
 const CHILD_X_OFFSET = 0;
 const CHILD_Y_OFFSET = 180;
@@ -41,19 +41,20 @@ export function useMindmaps() {
       }
     }
 
-    // Description box: py-3 (12px top + 12px bottom = 24px for vertical padding) + min-h-[24px] content
-    height += 24; // Padding top and bottom for description section
+    // Description box: py-3 (12px top + 12px bottom = 24px for vertical padding)
+    height += 24; // For the py-3 padding around the description content area
     if (node.description && node.description.trim() !== "") {
       const descCharsPerLine = Math.max(1, (currentCardWidth - (2 * 16)) / 8);
       const numDescLines = Math.ceil((node.description.length / descCharsPerLine)) + (node.description.split('\n').length - 1);
-      height += Math.max(24, numDescLines * 20); // Content height, ensure at least 24px
+      height += Math.max(24, numDescLines * 20); // Content height, ensure at least 24px (min-h-[24px] in NodeCard)
     } else {
-      height += 24; // min-h-[24px] for the empty description content box itself
+      // Account for the min-h-[24px] of the empty description placeholder's content box
+      height += 24; 
     }
 
     height += 4; // Account for top and bottom border of the card itself (2px + 2px)
     return Math.max(MIN_NODE_HEIGHT, height);
-  }, []);
+  }, [NODE_CARD_WIDTH]);
 
 
   useEffect(() => {
@@ -70,7 +71,9 @@ export function useMindmaps() {
 
         let x, y;
         const nodeWidth = node.width ?? NODE_CARD_WIDTH;
-        const nodeHeight = node.height ?? getApproxNodeHeight(node);
+        // Use getApproxNodeHeight for initial height if not set, useful for older data
+        const nodeHeight = node.height ?? getApproxNodeHeight({...node, width: nodeWidth});
+
 
         if (node.x === undefined || node.y === undefined) {
           if (parentNodeData) {
@@ -101,7 +104,7 @@ export function useMindmaps() {
           }
           migratedNodes[nodeId] = { ...node, x, y, width: nodeWidth, height: nodeHeight };
         } else {
-          migratedNodes[nodeId] = { ...node, width: nodeWidth, height: nodeHeight };
+           migratedNodes[nodeId] = { ...node, width: nodeWidth, height: node.height ?? getApproxNodeHeight({...node, width: nodeWidth}) };
           if (!parentNodeData && node.x !== undefined && (node.x + nodeWidth + ROOT_X_SPACING - NODE_CARD_WIDTH) > nextRootX) {
             nextRootX = node.x + nodeWidth + ROOT_X_SPACING - NODE_CARD_WIDTH;
           }
@@ -122,7 +125,7 @@ export function useMindmaps() {
             x: node.x === undefined ? nextRootX : node.x,
             y: node.y === undefined ? Y_OFFSET_FOR_FIRST_ROOT : node.y,
             width: node.width ?? NODE_CARD_WIDTH,
-            height: node.height ?? getApproxNodeHeight(node),
+            height: node.height ?? getApproxNodeHeight({...node, width: node.width ?? NODE_CARD_WIDTH}),
           };
           if (node.x === undefined && !node.parentId) nextRootX += ((node.width ?? NODE_CARD_WIDTH) + ROOT_X_SPACING - NODE_CARD_WIDTH);
         }
@@ -173,7 +176,16 @@ export function useMindmaps() {
     setMindmaps(prev =>
       prev.map(m => {
         if (m.id === id) {
-          changedMindmap = { ...m, ...updatedData, updatedAt: new Date().toISOString() };
+          const newMapData: MindmapData = {
+            ...m.data, 
+            ...(updatedData.data || {}), 
+          };
+          changedMindmap = { 
+            ...m, 
+            ...updatedData, 
+            data: newMapData, 
+            updatedAt: new Date().toISOString() 
+          };
           return changedMindmap;
         }
         return m;
@@ -198,7 +210,7 @@ export function useMindmaps() {
     const existingRootNodes = currentRootNodeIds.map(id => currentNodes[id]).filter(Boolean) as NodeData[];
 
     const newNodeInitialWidth = NODE_CARD_WIDTH; 
-    const tempNodeForHeightCalc = { ...nodeDetails, width: newNodeInitialWidth };
+    const tempNodeForHeightCalc: Partial<NodeData> = { ...nodeDetails, width: newNodeInitialWidth };
     const newNodeInitialHeight = getApproxNodeHeight(tempNodeForHeightCalc);
 
 
@@ -275,12 +287,14 @@ export function useMindmaps() {
     if (!mindmap || !mindmap.data.nodes[nodeId]) return;
 
     const existingNode = mindmap.data.nodes[nodeId];
+    const nodeWidth = existingNode.width ?? NODE_CARD_WIDTH; // Preserve existing width
     const updatedNodeData: NodeData = {
       ...existingNode,
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      height: getApproxNodeHeight({ ...existingNode, ...updates, width: existingNode.width ?? NODE_CARD_WIDTH }) 
+      width: nodeWidth, // Ensure width is preserved
+      height: getApproxNodeHeight({ ...existingNode, ...updates, width: nodeWidth }) 
     };
 
     const updatedNodes = {
@@ -300,29 +314,50 @@ export function useMindmaps() {
   }, [getMindmapById, updateMindmap]);
 
   const updateNodeDimensions = useCallback((mindmapId: string, nodeId: string, dimensions: { width: number; height: number }) => {
-    const mindmap = getMindmapById(mindmapId);
-    if (!mindmap || !mindmap.data.nodes[nodeId]) return;
+    setMindmaps(prevMindmaps =>
+      prevMindmaps.map(m => {
+        if (m.id === mindmapId) {
+          const mindmapNodes = m.data.nodes;
+          const existingNode = mindmapNodes[nodeId];
 
-    const existingNode = mindmap.data.nodes[nodeId];
-    
-    const newWidth = Math.max(MIN_NODE_WIDTH, Math.min(Math.round(dimensions.width), MAX_NODE_WIDTH));
-    const newHeight = Math.max(MIN_NODE_HEIGHT, Math.min(Math.round(dimensions.height), MAX_NODE_HEIGHT));
+          if (!existingNode) {
+            return m; 
+          }
 
-    if (Math.abs((existingNode.width ?? NODE_CARD_WIDTH) - newWidth) < 1 && Math.abs((existingNode.height ?? MIN_NODE_HEIGHT) - newHeight) < 1) {
-      return; 
-    }
+          const newWidth = Math.max(MIN_NODE_WIDTH, Math.min(Math.round(dimensions.width), MAX_NODE_WIDTH));
+          const newHeight = Math.max(MIN_NODE_HEIGHT, Math.min(Math.round(dimensions.height), MAX_NODE_HEIGHT));
 
-    const updatedNodeData: NodeData = {
-      ...existingNode,
-      width: newWidth,
-      height: newHeight,
-    };
-    const updatedNodes = {
-      ...mindmap.data.nodes,
-      [nodeId]: updatedNodeData
-    };
-    updateMindmap(mindmapId, { data: { ...mindmap.data, nodes: updatedNodes }});
-  }, [getMindmapById, updateMindmap]);
+          const currentWidth = existingNode.width ?? NODE_CARD_WIDTH;
+          const currentHeight = existingNode.height ?? MIN_NODE_HEIGHT; 
+
+          if (Math.abs(currentWidth - newWidth) < 1 && Math.abs(currentHeight - newHeight) < 1) {
+            return m; 
+          }
+
+          const updatedNodeData: NodeData = {
+            ...existingNode,
+            width: newWidth,
+            height: newHeight,
+          };
+
+          const updatedNodes: NodesObject = {
+            ...mindmapNodes,
+            [nodeId]: updatedNodeData,
+          };
+          
+          return {
+            ...m,
+            data: {
+              ...m.data,
+              nodes: updatedNodes,
+            },
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return m;
+      })
+    );
+  }, [NODE_CARD_WIDTH]);
 
 
   const deleteNodeRecursive = (nodes: NodesObject, nodeId: string): NodesObject => {
@@ -380,3 +415,5 @@ export function useMindmaps() {
     NODE_CARD_WIDTH
   };
 }
+
+    
