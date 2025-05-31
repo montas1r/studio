@@ -10,7 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 const LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT = 2000;
 const Y_OFFSET_FOR_FIRST_ROOT = 100;
 
-export const NODE_CARD_WIDTH = 320; // Standardized width (w-80 from Tailwind = 20rem = 320px)
+export const NODE_CARD_WIDTH = 320; 
 const ROOT_X_SPACING = NODE_CARD_WIDTH + 50;
 const CHILD_X_OFFSET = 0;
 const CHILD_Y_OFFSET = 180;
@@ -27,34 +27,32 @@ export function useMindmaps() {
 
   const getApproxNodeHeight = useCallback((node: Partial<NodeData> | null): number => {
     if (!node) return MIN_NODE_HEIGHT;
+    
     let height = 0;
-    // Header height: py-2 (8px top + 8px bottom = 16px) + text-lg (approx 28px for one line)
-    height += (16 + 28);
+    height += (16 + 28); // Header py-2 (16px) + text-lg (28px)
 
     const currentCardWidth = node.width ?? NODE_CARD_WIDTH;
 
     if (node.title) {
       const titleCharsPerLine = Math.max(1, (currentCardWidth - (2 * 16) - (node.emoji ? 32 : 0) - 70) / 10);
-      const numTitleLines = Math.ceil((node.title.length / titleCharsPerLine)) + (node.title.split('\n').length - 1);
+      const numTitleLines = Math.ceil((node.title.length / titleCharsPerLine)) + (node.title.split('\n').length -1);
       if (numTitleLines > 1) {
-        height += (numTitleLines - 1) * 28;
+        height += (numTitleLines - 1) * 28; 
       }
     }
-
-    // Description box: py-3 (12px top + 12px bottom = 24px for vertical padding)
-    height += 24; // For the py-3 padding around the description content area
+    
+    height += 24; // Description box py-3 padding (12px top + 12px bottom)
     if (node.description && node.description.trim() !== "") {
       const descCharsPerLine = Math.max(1, (currentCardWidth - (2 * 16)) / 8);
-      const numDescLines = Math.ceil((node.description.length / descCharsPerLine)) + (node.description.split('\n').length - 1);
-      height += Math.max(24, numDescLines * 20); // Content height, ensure at least 24px (min-h-[24px] in NodeCard)
+      const numDescLines = Math.ceil((node.description.length / descCharsPerLine)) + (node.description.split('\n').length -1);
+      height += Math.max(24, numDescLines * 20); // Ensure at least 24px for content (min-h-[24px]) or lines * 20px line height
     } else {
-      // Account for the min-h-[24px] of the empty description placeholder's content box
-      height += 24; 
+      height += 24; // For the min-h-[24px] of the empty description content box itself
     }
-
+    
     height += 4; // Account for top and bottom border of the card itself (2px + 2px)
     return Math.max(MIN_NODE_HEIGHT, height);
-  }, [NODE_CARD_WIDTH]);
+  }, []);
 
 
   useEffect(() => {
@@ -71,7 +69,6 @@ export function useMindmaps() {
 
         let x, y;
         const nodeWidth = node.width ?? NODE_CARD_WIDTH;
-        // Use getApproxNodeHeight for initial height if not set, useful for older data
         const nodeHeight = node.height ?? getApproxNodeHeight({...node, width: nodeWidth});
 
 
@@ -79,18 +76,18 @@ export function useMindmaps() {
           if (parentNodeData) {
             const parentX = parentNodeData.x ?? nextRootX;
             const parentY = parentNodeData.y ?? Y_OFFSET_FOR_FIRST_ROOT;
-            const parentNodeHeight = parentNodeData.height ?? getApproxNodeHeight(parentNodeData);
-            const parentNodeWidth = parentNodeData.width ?? NODE_CARD_WIDTH;
+            const parentNodeHeightValue = parentNodeData.height ?? getApproxNodeHeight(parentNodeData);
+            const parentNodeWidthValue = parentNodeData.width ?? NODE_CARD_WIDTH;
 
-            y = parentY + parentNodeHeight + CHILD_Y_OFFSET;
+            y = parentY + parentNodeHeightValue + CHILD_Y_OFFSET;
 
             const childrenCount = parentNodeData.childIds?.length || 0;
             if (childrenCount > 1) {
                 const totalWidthOfChildren = childrenCount * nodeWidth + (childrenCount -1) * 30;
-                const startX = parentX + (parentNodeWidth / 2) - (totalWidthOfChildren / 2);
+                const startX = parentX + (parentNodeWidthValue / 2) - (totalWidthOfChildren / 2);
                 x = startX + siblingIndex * (nodeWidth + 30);
             } else {
-                x = parentX + (parentNodeWidth / 2) - (nodeWidth / 2) + CHILD_X_OFFSET;
+                x = parentX + (parentNodeWidthValue / 2) - (nodeWidth / 2) + CHILD_X_OFFSET;
             }
           } else {
             if (isFirstRootInMap && rootsToProcess.length === 1) {
@@ -219,18 +216,18 @@ export function useMindmaps() {
       if (parentNode) {
         const parentNodeX = parentNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (NODE_CARD_WIDTH / 2);
         const parentNodeY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
-        const parentNodeHeight = parentNode.height ?? getApproxNodeHeight(parentNode);
-        const parentNodeWidth = parentNode.width ?? NODE_CARD_WIDTH;
+        const parentNodeHeightValue = parentNode.height ?? getApproxNodeHeight(parentNode);
+        const parentNodeWidthValue = parentNode.width ?? NODE_CARD_WIDTH;
         const siblingCount = (parentNode.childIds || []).length;
 
-        y = parentNodeY + parentNodeHeight + CHILD_Y_OFFSET;
+        y = parentNodeY + parentNodeHeightValue + CHILD_Y_OFFSET;
 
         if (siblingCount > 0) {
            const totalWidthOfChildren = (siblingCount + 1) * newNodeInitialWidth + siblingCount * 30; 
-           const startX = parentNodeX + (parentNodeWidth / 2) - (totalWidthOfChildren / 2);
+           const startX = parentNodeX + (parentNodeWidthValue / 2) - (totalWidthOfChildren / 2);
            x = startX + siblingCount * (newNodeInitialWidth + 30);
         } else {
-           x = parentNodeX + (parentNodeWidth / 2) - (newNodeInitialWidth / 2) + CHILD_X_OFFSET;
+           x = parentNodeX + (parentNodeWidthValue / 2) - (newNodeInitialWidth / 2) + CHILD_X_OFFSET;
         }
       } else {
         parentId = null; 
@@ -244,8 +241,8 @@ export function useMindmaps() {
         y = Y_OFFSET_FOR_FIRST_ROOT;
       } else {
          const lastRootNode = existingRootNodes.sort((a,b) => (a.x ?? 0) - (b.x ?? 0))[existingRootNodes.length - 1];
-         const lastRootNodeWidth = lastRootNode.width ?? NODE_CARD_WIDTH;
-         x = (lastRootNode.x ?? 0) + lastRootNodeWidth + (ROOT_X_SPACING - NODE_CARD_WIDTH);
+         const lastRootNodeWidthValue = lastRootNode.width ?? NODE_CARD_WIDTH;
+         x = (lastRootNode.x ?? 0) + lastRootNodeWidthValue + (ROOT_X_SPACING - NODE_CARD_WIDTH);
          y = Y_OFFSET_FOR_FIRST_ROOT;
       }
     }
@@ -287,13 +284,13 @@ export function useMindmaps() {
     if (!mindmap || !mindmap.data.nodes[nodeId]) return;
 
     const existingNode = mindmap.data.nodes[nodeId];
-    const nodeWidth = existingNode.width ?? NODE_CARD_WIDTH; // Preserve existing width
+    const nodeWidth = existingNode.width ?? NODE_CARD_WIDTH; 
     const updatedNodeData: NodeData = {
       ...existingNode,
       title: updates.title,
       description: updates.description,
       emoji: updates.emoji || undefined,
-      width: nodeWidth, // Ensure width is preserved
+      width: nodeWidth, 
       height: getApproxNodeHeight({ ...existingNode, ...updates, width: nodeWidth }) 
     };
 
@@ -328,7 +325,8 @@ export function useMindmaps() {
           const newHeight = Math.max(MIN_NODE_HEIGHT, Math.min(Math.round(dimensions.height), MAX_NODE_HEIGHT));
 
           const currentWidth = existingNode.width ?? NODE_CARD_WIDTH;
-          const currentHeight = existingNode.height ?? MIN_NODE_HEIGHT; 
+          // Use getApproxNodeHeight for comparison if existingNode.height is not set.
+          const currentHeight = existingNode.height ?? getApproxNodeHeight(existingNode); 
 
           if (Math.abs(currentWidth - newWidth) < 1 && Math.abs(currentHeight - newHeight) < 1) {
             return m; 
@@ -357,7 +355,7 @@ export function useMindmaps() {
         return m;
       })
     );
-  }, [NODE_CARD_WIDTH]);
+  }, [getApproxNodeHeight]);
 
 
   const deleteNodeRecursive = (nodes: NodesObject, nodeId: string): NodesObject => {
@@ -412,7 +410,11 @@ export function useMindmaps() {
     updateNodeDimensions,
     deleteNode,
     getApproxNodeHeight,
-    NODE_CARD_WIDTH
+    NODE_CARD_WIDTH,
+    MIN_NODE_WIDTH,
+    MAX_NODE_WIDTH,
+    MIN_NODE_HEIGHT,
+    MAX_NODE_HEIGHT,
   };
 }
 

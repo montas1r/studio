@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React, { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { NODE_CARD_WIDTH } from '@/hooks/useMindmaps'; 
+import { NODE_CARD_WIDTH, MIN_NODE_HEIGHT } from '@/hooks/useMindmaps'; // Assuming MIN_NODE_HEIGHT is exported or use a local const
 
 interface NodeCardProps {
   node: NodeData;
@@ -36,7 +36,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: `${node.width ?? NODE_CARD_WIDTH}px`, 
+    width: node.width ? `${node.width}px` : `${NODE_CARD_WIDTH}px`, // Dynamically use node.width or fallback
     height: node.height ? `${node.height}px` : undefined, 
   };
 
@@ -48,7 +48,8 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
-  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
+  // Removed 'w-80' from here, width is now controlled by cardPositionStyle
+  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2"; 
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
@@ -64,40 +65,73 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     if (currentRef && onNodeDimensionsChange) {
       const measureAndReport = () => {
         const { width, height } = currentRef.getBoundingClientRect();
-        
         const newWidth = Math.round(width);
         const newHeight = Math.round(height);
 
         if (newWidth > 0 && newHeight > 0) {
-          if (Math.abs((node.width ?? NODE_CARD_WIDTH) - newWidth) >= 1 || Math.abs((node.height ?? 0) - newHeight) >= 1) {
+          const storedWidth = node.width ?? NODE_CARD_WIDTH;
+          // If node.height is undefined, it means it's content-driven.
+          // We report the new height to establish it in the state.
+          // If node.height is defined, we only report if it significantly changed.
+          const storedHeight = node.height; 
+          
+          let significantChange = false;
+          if (Math.abs(storedWidth - newWidth) >= 1) {
+            significantChange = true;
+          }
+          if (storedHeight !== undefined) { // Only compare if a height was previously stored
+            if (Math.abs(storedHeight - newHeight) >= 1) {
+              significantChange = true;
+            }
+          } else { // No height was stored, so this is the first concrete measurement
+            significantChange = true;
+          }
+
+          if (significantChange) {
             onNodeDimensionsChange(node.id, { width: newWidth, height: newHeight });
           }
         }
       };
       
       const initialRect = currentRef.getBoundingClientRect();
-      if (initialRect.width > 0 && initialRect.height > 0 && 
-          (!node.width || !node.height || 
-           Math.abs(node.width - initialRect.width) >=1 || 
-           Math.abs(node.height - initialRect.height) >=1 )) {
-         onNodeDimensionsChange(node.id, { width: Math.round(initialRect.width), height: Math.round(initialRect.height) });
+      const initialWidth = Math.round(initialRect.width);
+      const initialHeight = Math.round(initialRect.height);
+
+      if (initialWidth > 0 && initialHeight > 0) {
+          const expectedInitialWidth = node.width ?? NODE_CARD_WIDTH;
+          const storedInitialHeight = node.height; // This is the height from the state
+          
+          let significantInitialChange = false;
+          if (Math.abs(expectedInitialWidth - initialWidth) >= 1) {
+            significantInitialChange = true;
+          }
+
+          // If no height is stored in state, or if stored height differs from measured
+          if (storedInitialHeight === undefined || Math.abs(storedInitialHeight - initialHeight) >= 1) {
+            significantInitialChange = true;
+          }
+          
+          if (significantInitialChange) {
+             onNodeDimensionsChange(node.id, { width: initialWidth, height: initialHeight });
+          }
       }
 
       const resizeObserver = new ResizeObserver(measureAndReport);
       resizeObserver.observe(currentRef);
 
       return () => {
-        if (currentRef) {
+        if (currentRef) { 
             resizeObserver.unobserve(currentRef);
         }
         resizeObserver.disconnect();
       };
     }
-  }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange, node.width, node.height]);
+    // node.width and node.height removed from dependencies as they are outputs of this effect
+  }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange]);
 
 
   const handleResizeMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    event.stopPropagation(); // Prevent node drag or canvas pan
+    event.stopPropagation(); 
     if (onInitiateNodeResize) {
       onInitiateNodeResize(event, node.id);
     }
