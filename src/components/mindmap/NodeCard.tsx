@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React, { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { NODE_CARD_WIDTH, MIN_NODE_HEIGHT } from '@/hooks/useMindmaps'; // Assuming MIN_NODE_HEIGHT is exported or use a local const
+import { NODE_CARD_WIDTH, MIN_NODE_HEIGHT } from '@/hooks/useMindmaps';
 
 interface NodeCardProps {
   node: NodeData;
@@ -16,6 +16,8 @@ interface NodeCardProps {
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
   onNodeDimensionsChange?: (nodeId: string, dimensions: { width: number; height: number }) => void;
   onInitiateNodeResize?: (event: React.MouseEvent<HTMLDivElement>, nodeId: string) => void;
+  isBeingManuallyResized?: boolean; // New prop
+  getApproxNodeHeightFromHook: (node: Partial<NodeData> | null) => number; // Prop for accuracy
   className?: string;
 }
 
@@ -27,6 +29,8 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onDragStart,
   onNodeDimensionsChange,
   onInitiateNodeResize,
+  isBeingManuallyResized, // Use new prop
+  getApproxNodeHeightFromHook, // Use new prop
   className,
 }) => {
   const isRoot = !node.parentId;
@@ -36,7 +40,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: node.width ? `${node.width}px` : `${NODE_CARD_WIDTH}px`, // Dynamically use node.width or fallback
+    width: node.width ? `${node.width}px` : `${NODE_CARD_WIDTH}px`,
     height: node.height ? `${node.height}px` : undefined, 
   };
 
@@ -48,7 +52,6 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
-  // Removed 'w-80' from here, width is now controlled by cardPositionStyle
   const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2"; 
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
@@ -64,56 +67,48 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     const currentRef = nodeRef.current;
     if (currentRef && onNodeDimensionsChange) {
       const measureAndReport = () => {
-        const { width, height } = currentRef.getBoundingClientRect();
-        const newWidth = Math.round(width);
-        const newHeight = Math.round(height);
+        if (isBeingManuallyResized || !currentRef) return; // Do not report if being manually resized or ref is gone
+
+        const { width: measuredWidthDOM, height: measuredHeightDOM } = currentRef.getBoundingClientRect();
+        
+        const newWidth = Math.round(measuredWidthDOM);
+        const newHeight = Math.round(measuredHeightDOM);
 
         if (newWidth > 0 && newHeight > 0) {
-          const storedWidth = node.width ?? NODE_CARD_WIDTH;
-          // If node.height is undefined, it means it's content-driven.
-          // We report the new height to establish it in the state.
-          // If node.height is defined, we only report if it significantly changed.
-          const storedHeight = node.height; 
-          
-          let significantChange = false;
-          if (Math.abs(storedWidth - newWidth) >= 1) {
-            significantChange = true;
-          }
-          if (storedHeight !== undefined) { // Only compare if a height was previously stored
-            if (Math.abs(storedHeight - newHeight) >= 1) {
-              significantChange = true;
-            }
-          } else { // No height was stored, so this is the first concrete measurement
-            significantChange = true;
-          }
+          const currentPropsWidth = node.width ?? NODE_CARD_WIDTH;
+          const currentPropsHeight = node.height ?? getApproxNodeHeightFromHook({ 
+              title: node.title, 
+              description: node.description, 
+              emoji: node.emoji, 
+              width: currentPropsWidth 
+          });
 
-          if (significantChange) {
+          if (Math.abs(currentPropsWidth - newWidth) >= 1 || Math.abs(currentPropsHeight - newHeight) >= 1) {
             onNodeDimensionsChange(node.id, { width: newWidth, height: newHeight });
           }
         }
       };
       
-      const initialRect = currentRef.getBoundingClientRect();
-      const initialWidth = Math.round(initialRect.width);
-      const initialHeight = Math.round(initialRect.height);
+      // Initial measurement logic
+      if (!isBeingManuallyResized) { // Also respect this flag for initial measurement
+        const initialRect = currentRef.getBoundingClientRect();
+        const initialMeasuredWidth = Math.round(initialRect.width);
+        const initialMeasuredHeight = Math.round(initialRect.height);
 
-      if (initialWidth > 0 && initialHeight > 0) {
-          const expectedInitialWidth = node.width ?? NODE_CARD_WIDTH;
-          const storedInitialHeight = node.height; // This is the height from the state
-          
-          let significantInitialChange = false;
-          if (Math.abs(expectedInitialWidth - initialWidth) >= 1) {
-            significantInitialChange = true;
-          }
+        if (initialMeasuredWidth > 0 && initialMeasuredHeight > 0) {
+            const currentPropsWidthForInitial = node.width ?? NODE_CARD_WIDTH;
+            const currentPropsHeightForInitial = node.height ?? getApproxNodeHeightFromHook({
+                title: node.title,
+                description: node.description,
+                emoji: node.emoji,
+                width: currentPropsWidthForInitial
+            });
 
-          // If no height is stored in state, or if stored height differs from measured
-          if (storedInitialHeight === undefined || Math.abs(storedInitialHeight - initialHeight) >= 1) {
-            significantInitialChange = true;
-          }
-          
-          if (significantInitialChange) {
-             onNodeDimensionsChange(node.id, { width: initialWidth, height: initialHeight });
-          }
+            if (Math.abs(currentPropsWidthForInitial - initialMeasuredWidth) >= 1 || 
+                Math.abs(currentPropsHeightForInitial - initialMeasuredHeight) >= 1) {
+                onNodeDimensionsChange(node.id, { width: initialMeasuredWidth, height: initialMeasuredHeight });
+            }
+        }
       }
 
       const resizeObserver = new ResizeObserver(measureAndReport);
@@ -126,8 +121,18 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
         resizeObserver.disconnect();
       };
     }
-    // node.width and node.height removed from dependencies as they are outputs of this effect
-  }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange]);
+  }, [
+      node.id, 
+      node.title, 
+      node.description, 
+      node.emoji, 
+      onNodeDimensionsChange, 
+      isBeingManuallyResized, // Add to dependencies
+      getApproxNodeHeightFromHook, // Add to dependencies
+      NODE_CARD_WIDTH, // Constant, but good practice if it were dynamic
+      node.width, // Re-add to observe prop changes from manual resize completion
+      node.height // Re-add to observe prop changes from manual resize completion
+    ]);
 
 
   const handleResizeMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -203,3 +208,5 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
 
 NodeCardComponent.displayName = 'NodeCardComponent';
 export const NodeCard = NodeCardComponent;
+
+    

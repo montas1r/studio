@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { Mindmap, NodeData, EditNodeInput, NodesObject, MindmapData } from '@/types/mindmap';
-import { useMindmaps, NODE_CARD_WIDTH, MIN_NODE_WIDTH, MAX_NODE_WIDTH, MIN_NODE_HEIGHT, MAX_NODE_HEIGHT } from '@/hooks/useMindmaps';
+import { useMindmaps } from '@/hooks/useMindmaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,6 +69,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     updateNodeDimensions, 
     updateMindmap,
     getApproxNodeHeight,
+    NODE_CARD_WIDTH,
+    MIN_NODE_WIDTH,
+    MAX_NODE_WIDTH,
+    MIN_NODE_HEIGHT,
+    MAX_NODE_HEIGHT,
   } = useMindmaps();
 
   const mindmap = getMindmapById(mindmapId);
@@ -106,6 +111,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
 
   const handleNodeDimensionsChange = useCallback((nodeId: string, dimensions: { width: number; height: number }) => {
+    // This function is called by NodeCard's ResizeObserver.
+    // We only want it to act if a manual resize is NOT in progress for this node.
     if (mindmapId && (!resizingNodeInfo || resizingNodeInfo.nodeId !== nodeId)) { 
       updateNodeDimensions(mindmapId, nodeId, dimensions);
     }
@@ -213,7 +220,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     setScale(newFitScale);
     setPan(clampedFitPan);
-  }, [mindmap, getApproxNodeHeight, clampPan, canvasNumericWidth, canvasNumericHeight]);
+  }, [mindmap, getApproxNodeHeight, clampPan, canvasNumericWidth, canvasNumericHeight, NODE_CARD_WIDTH]);
 
 
   useEffect(() => {
@@ -419,23 +426,24 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const newPanY = viewportRect.height / 2 - nodeCenterY_logical * scale;
       setPan(clampPan(newPanX, newPanY, scale));
     }
-  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, getApproxNodeHeight, beforeMutation, scale, clampPan]);
+  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, getApproxNodeHeight, beforeMutation, scale, clampPan, NODE_CARD_WIDTH]);
 
   const handleAddChildNode = useCallback((parentId: string) => {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
+    
     const tempNewNode: NodeData = {
       id: `temp-${Date.now()}`,
       title: '', description: "", emoji: "➕", parentId: parentId, childIds: [],
-      x: parentNode.x + (parentNode.width ?? NODE_CARD_WIDTH) / 2,
-      y: parentNode.y + (parentNode.height ?? getApproxNodeHeight(parentNode)) + 50,
-      width: NODE_CARD_WIDTH,
-      height: getApproxNodeHeight({title: '', description: '', width: NODE_CARD_WIDTH}),
+      x: parentNode.x + (parentNode.width ?? NODE_CARD_WIDTH) / 2, // Temp x, will be recalc in addNode
+      y: parentNode.y + (parentNode.height ?? getApproxNodeHeight(parentNode)) + 50, // Temp y
+      width: NODE_CARD_WIDTH, // Default width
+      height: getApproxNodeHeight({title: '', description: '', width: NODE_CARD_WIDTH}), // Approx height
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
-  }, [mindmap, getApproxNodeHeight]);
+  }, [mindmap, getApproxNodeHeight, NODE_CARD_WIDTH]);
 
   const handleEditNode = useCallback((node: NodeData) => {
     setEditingNode(deepClone(node));
@@ -527,7 +535,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     beforeMutation();
     updateNodePosition(mindmap.id, nodeId, newX_logical, newY_logical);
-  }, [mindmap, pan, scale, activeTool, beforeMutation, canvasNumericWidth, canvasNumericHeight, getApproxNodeHeight, updateNodePosition, resizingNodeInfo]);
+  }, [mindmap, pan, scale, activeTool, beforeMutation, canvasNumericWidth, canvasNumericHeight, getApproxNodeHeight, updateNodePosition, resizingNodeInfo, NODE_CARD_WIDTH]);
 
   const handleExportJson = useCallback(() => {
     if (!mindmap) return;
@@ -542,12 +550,12 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
   const handleInitiateNodeResize = useCallback((event: React.MouseEvent<HTMLDivElement>, nodeId: string) => {
     if (!mindmap) return;
+    const node = mindmap.data.nodes[nodeId];
+    if (!node) return;
+    
     event.preventDefault();
     event.stopPropagation();
     
-    const node = mindmap.data.nodes[nodeId];
-    if (!node) return;
-
     beforeMutation(); 
 
     setResizingNodeInfo({
@@ -557,28 +565,30 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       initialWidth: node.width ?? NODE_CARD_WIDTH,
       initialHeight: node.height ?? getApproxNodeHeight(node),
     });
-  }, [mindmap, beforeMutation, getApproxNodeHeight, scale]); 
+  }, [mindmap, beforeMutation, getApproxNodeHeight, NODE_CARD_WIDTH]); 
 
 
   const handleGlobalResizeMouseMove = useCallback((event: MouseEvent) => {
-    if (!resizingNodeInfo || !mindmap) return;
+    if (!resizingNodeInfo || !mindmap) return; 
     event.preventDefault();
 
-    const dxScreen = event.clientX - resizingNodeInfo.initialScreenX;
-    const dyScreen = event.clientY - resizingNodeInfo.initialScreenY;
+    const { nodeId, initialScreenX, initialScreenY, initialWidth, initialHeight } = resizingNodeInfo;
+
+    const dxScreen = event.clientX - initialScreenX;
+    const dyScreen = event.clientY - initialScreenY;
 
     const dxLogical = dxScreen / scale;
     const dyLogical = dyScreen / scale;
 
-    let newWidth = resizingNodeInfo.initialWidth + dxLogical;
-    let newHeight = resizingNodeInfo.initialHeight + dyLogical;
+    let newWidth = initialWidth + dxLogical;
+    let newHeight = initialHeight + dyLogical;
 
     newWidth = Math.max(MIN_NODE_WIDTH, Math.min(newWidth, MAX_NODE_WIDTH));
     newHeight = Math.max(MIN_NODE_HEIGHT, Math.min(newHeight, MAX_NODE_HEIGHT));
     
-    updateNodeDimensions(mindmap.id, resizingNodeInfo.nodeId, { width: newWidth, height: newHeight });
+    updateNodeDimensions(mindmap.id, nodeId, { width: newWidth, height: newHeight });
 
-  }, [resizingNodeInfo, mindmap, scale, updateNodeDimensions]);
+  }, [resizingNodeInfo, mindmap, scale, updateNodeDimensions, MIN_NODE_WIDTH, MAX_NODE_WIDTH, MIN_NODE_HEIGHT, MAX_NODE_HEIGHT]);
 
   const handleGlobalResizeMouseUp = useCallback((event: MouseEvent) => {
     if (!resizingNodeInfo) return;
@@ -699,6 +709,8 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   onDragStart={(e) => handleNodeDragStart(e, nodeData.id)}
                   onNodeDimensionsChange={handleNodeDimensionsChange} 
                   onInitiateNodeResize={handleInitiateNodeResize}
+                  isBeingManuallyResized={resizingNodeInfo?.nodeId === nodeData.id}
+                  getApproxNodeHeightFromHook={getApproxNodeHeight} 
                   className="node-card-draggable"
                 />
               ))}
@@ -744,3 +756,5 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </TooltipProvider>
   );
 }
+
+    
