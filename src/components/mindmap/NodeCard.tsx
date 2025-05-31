@@ -4,7 +4,7 @@
 import type { NodeData } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 interface NodeCardProps {
@@ -13,7 +13,7 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
-  // domRefCallback: (nodeId: string, element: HTMLDivElement | null) => void; // Removed
+  onNodeDimensionsChange?: (nodeId: string, dimensions: { width: number; height: number }) => void;
   className?: string;
 }
 
@@ -23,25 +23,25 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onDelete,
   onAddChild,
   onDragStart,
-  // domRefCallback, // Removed
+  onNodeDimensionsChange,
   className,
 }) => {
   const isRoot = !node.parentId;
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   const cardPositionStyle: React.CSSProperties = {
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: '300px', // Fixed width for v0.0.5
+    width: `${node.width ?? 300}px`, // Use measured width or fallback
+    // height will be auto based on content or set by NodeData.height if we were to use it directly
   };
 
-  // v0.0.5 uses default theme colors, no customBackgroundColor
   const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
   const themeBorderClass = isRoot ? "border-primary" : "border-accent";
   const headerTextColorClass = isRoot ? "text-primary-foreground" : "text-accent-foreground";
   const buttonHoverBgClass = "hover:bg-black/20";
 
-  // Fixed light description box for v0.0.5 as per user request after initial MD
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
@@ -52,20 +52,46 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     onDragStart(event, node.id);
   };
 
-  // const elementRef = React.useCallback((element: HTMLDivElement | null) => { // Removed
-  //   domRefCallback(node.id, element);
-  // }, [node.id, domRefCallback]);
+  useEffect(() => {
+    const currentRef = nodeRef.current;
+    if (currentRef && onNodeDimensionsChange) {
+      const measureAndReport = () => {
+        const { width, height } = currentRef.getBoundingClientRect();
+        // Round dimensions to avoid rapid tiny updates if desired, or compare with tolerance
+        const newWidth = Math.round(width);
+        const newHeight = Math.round(height);
+
+        if (newWidth > 0 && newHeight > 0) {
+          // Only report if dimensions changed by at least 1px to prevent potential loops
+          if (Math.abs((node.width ?? 0) - newWidth) >= 1 || Math.abs((node.height ?? 0) - newHeight) >= 1) {
+            onNodeDimensionsChange(node.id, { width: newWidth, height: newHeight });
+          }
+        }
+      };
+      
+      // Initial measurement
+      measureAndReport();
+
+      const resizeObserver = new ResizeObserver(measureAndReport);
+      resizeObserver.observe(currentRef);
+
+      return () => {
+        resizeObserver.unobserve(currentRef);
+        resizeObserver.disconnect();
+      };
+    }
+  }, [node.id, node.title, node.description, node.emoji, onNodeDimensionsChange, node.width, node.height]); // Re-observe if key content impacting size changes, or if onNodeDimensionsChange itself changes
 
   return (
     <div
       id={`node-${node.id}`}
-      // ref={elementRef} // Removed
+      ref={nodeRef}
       className={currentCardClasses}
       style={cardPositionStyle}
       draggable
       onDragStart={handleDragStartInternal}
-      onClick={(e) => e.stopPropagation()} // Prevent canvas click-to-pan/select
-      onMouseDown={(e) => e.stopPropagation()} // Prevent canvas click-to-pan/select
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -97,12 +123,14 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
           "px-4 py-3 flex-grow",
           descriptionBgClass,
           descriptionTextColorClass,
-          !node.description && "min-h-[24px]" // Ensure some height even if description is empty
+           // The min-h-[24px] here is for the *content box* of this div.
+           // Combined with py-3 (12px top/bottom padding), the total section height will be at least 48px.
+          !node.description && "min-h-[24px]"
       )}>
         {node.description ? (
           <p className={cn("text-sm whitespace-pre-wrap leading-relaxed break-words")}>{node.description}</p>
         ) : (
-          <div className="h-full"></div> // Placeholder for consistent height if no description
+          <div className="h-full"></div>
         )}
       </div>
     </div>

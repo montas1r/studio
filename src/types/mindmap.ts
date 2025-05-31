@@ -11,6 +11,8 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
+  width?: number; // Actual rendered width
+  height?: number; // Actual rendered height
 }
 
 export interface NodesObject {
