@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,22 +14,26 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { EditNodeInput, NodeData } from '@/types/mindmap';
+import type { EditNodeInput, NodeData, NodeSize } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Ruler } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface EditNodeDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   node: NodeData | null; 
-  onSave: (nodeId: string, data: EditNodeInput) => void;
+  onSave: (nodeId: string, data: EditNodeInput, newSize?: NodeSize) => void; // Added newSize
 }
 
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
+  const [selectedNodeSize, setSelectedNodeSize] = useState<NodeSize>('standard');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { toast } = useToast();
 
@@ -38,21 +42,27 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setTitle(node.title);
       setDescription(node.description);
       setEmoji(node.emoji || '');
+      setSelectedNodeSize(node.size || 'standard');
     } else {
+      // Reset for new node creation if dialog is repurposed
       setTitle('');
       setDescription('');
       setEmoji('');
+      setSelectedNodeSize('standard');
     }
   }, [node]);
 
   const handleSubmit = () => {
     if (node && title.trim()) {
-      onSave(node.id, { 
-        title: title.trim(),
-        description,
-        emoji: emoji.trim() || undefined,
-        // No customBackgroundColor in v0.0.5
-      });
+      onSave(
+        node.id, 
+        { 
+          title: title.trim(),
+          description,
+          emoji: emoji.trim() || undefined,
+        },
+        selectedNodeSize // Pass the selected size
+      );
       onOpenChange(false); 
     }
   };
@@ -146,7 +156,23 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
               </Button>
             </div>
           </div>
-          {/* No color picker in v0.0.5 */}
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="node-size" className="text-right flex items-center">
+              <Ruler className="mr-1.5 h-4 w-4 text-muted-foreground inline-block" /> Size
+            </Label>
+            <div className="col-span-3">
+                <Select value={selectedNodeSize} onValueChange={(value) => setSelectedNodeSize(value as NodeSize)}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select node size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="mini">Mini</SelectItem>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="massive">Massive</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

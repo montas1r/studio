@@ -1,6 +1,8 @@
 
-// No PaletteColorKey or customBackgroundColor in NodeData for v0.0.5
+// No customBackgroundColor in NodeData for v0.0.5
 // No imageUrl in NodeData for v0.0.5
+
+export type NodeSize = 'mini' | 'standard' | 'massive';
 
 export interface NodeData {
   id: string;
@@ -11,8 +13,9 @@ export interface NodeData {
   childIds: string[];
   x: number;
   y: number;
-  width?: number; // Actual rendered width
-  height?: number; // Actual rendered height
+  width?: number; // Actual rendered width, driven by size
+  height?: number; // Actual rendered height, driven by size and content
+  size?: NodeSize; // New property for fixed sizing
 }
 
 export interface NodesObject {
@@ -44,4 +47,5 @@ export interface EditNodeInput {
   description: string;
   emoji?: string;
   // No customBackgroundColor or imageUrl in v0.0.5 EditNodeInput
+  // Size will be handled separately or as part of a more comprehensive update
 }

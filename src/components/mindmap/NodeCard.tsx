@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
 import React, { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { NODE_CARD_WIDTH, MIN_NODE_HEIGHT } from '@/hooks/useMindmaps';
+import { STANDARD_NODE_WIDTH, MIN_NODE_HEIGHT } from '@/hooks/useMindmaps'; // STANDARD_NODE_WIDTH is 320px
 
 interface NodeCardProps {
   node: NodeData;
@@ -14,10 +14,8 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
-  onNodeDimensionsChange?: (nodeId: string, dimensions: { width: number; height: number }) => void;
-  onInitiateNodeResize?: (event: React.MouseEvent<HTMLDivElement>, nodeId: string) => void;
-  isBeingManuallyResized?: boolean; // New prop
-  getApproxNodeHeightFromHook: (node: Partial<NodeData> | null) => number; // Prop for accuracy
+  onNodeHeightChange?: (nodeId: string, measuredHeight: number) => void; // Renamed, only for height
+  getApproxNodeHeightFromHook: (nodeContent: Partial<Pick<NodeData, 'title' | 'description' | 'emoji'>>, currentWidth: number) => number;
   className?: string;
 }
 
@@ -27,10 +25,8 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onDelete,
   onAddChild,
   onDragStart,
-  onNodeDimensionsChange,
-  onInitiateNodeResize,
-  isBeingManuallyResized, // Use new prop
-  getApproxNodeHeightFromHook, // Use new prop
+  onNodeHeightChange,
+  getApproxNodeHeightFromHook,
   className,
 }) => {
   const isRoot = !node.parentId;
@@ -40,7 +36,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     position: 'absolute',
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: node.width ? `${node.width}px` : `${NODE_CARD_WIDTH}px`,
+    width: node.width ? `${node.width}px` : `${STANDARD_NODE_WIDTH}px`,
     height: node.height ? `${node.height}px` : undefined, 
   };
 
@@ -52,66 +48,46 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
+  // Width is now set by inline style via cardPositionStyle
   const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2"; 
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('.resize-handle')) {
-      event.preventDefault();
-      return;
-    }
+    // No resize handle to check against anymore
     onDragStart(event, node.id);
   };
 
   useEffect(() => {
     const currentRef = nodeRef.current;
-    if (currentRef && onNodeDimensionsChange) {
-      const measureAndReport = () => {
-        if (isBeingManuallyResized || !currentRef) return; // Do not report if being manually resized or ref is gone
-
-        const { width: measuredWidthDOM, height: measuredHeightDOM } = currentRef.getBoundingClientRect();
-        
-        const newWidth = Math.round(measuredWidthDOM);
+    if (currentRef && onNodeHeightChange) {
+      const measureAndReportHeight = () => {
+        if (!currentRef) return;
+        const { height: measuredHeightDOM } = currentRef.getBoundingClientRect();
         const newHeight = Math.round(measuredHeightDOM);
 
-        if (newWidth > 0 && newHeight > 0) {
-          const currentPropsWidth = node.width ?? NODE_CARD_WIDTH;
-          const currentPropsHeight = node.height ?? getApproxNodeHeightFromHook({ 
-              title: node.title, 
-              description: node.description, 
-              emoji: node.emoji, 
-              width: currentPropsWidth 
-          });
+        if (newHeight > 0) {
+          const nodeContentForApproxHeight = { title: node.title, description: node.description, emoji: node.emoji };
+          const currentApproxHeight = getApproxNodeHeightFromHook(nodeContentForApproxHeight, node.width ?? STANDARD_NODE_WIDTH);
+          const storedHeight = node.height ?? currentApproxHeight;
 
-          if (Math.abs(currentPropsWidth - newWidth) >= 1 || Math.abs(currentPropsHeight - newHeight) >= 1) {
-            onNodeDimensionsChange(node.id, { width: newWidth, height: newHeight });
+          if (Math.abs(storedHeight - newHeight) >= 1) {
+            onNodeHeightChange(node.id, newHeight);
           }
         }
       };
       
-      // Initial measurement logic
-      if (!isBeingManuallyResized) { // Also respect this flag for initial measurement
-        const initialRect = currentRef.getBoundingClientRect();
-        const initialMeasuredWidth = Math.round(initialRect.width);
-        const initialMeasuredHeight = Math.round(initialRect.height);
-
-        if (initialMeasuredWidth > 0 && initialMeasuredHeight > 0) {
-            const currentPropsWidthForInitial = node.width ?? NODE_CARD_WIDTH;
-            const currentPropsHeightForInitial = node.height ?? getApproxNodeHeightFromHook({
-                title: node.title,
-                description: node.description,
-                emoji: node.emoji,
-                width: currentPropsWidthForInitial
-            });
-
-            if (Math.abs(currentPropsWidthForInitial - initialMeasuredWidth) >= 1 || 
-                Math.abs(currentPropsHeightForInitial - initialMeasuredHeight) >= 1) {
-                onNodeDimensionsChange(node.id, { width: initialMeasuredWidth, height: initialMeasuredHeight });
-            }
-        }
+      const initialRect = currentRef.getBoundingClientRect();
+      const initialHeight = Math.round(initialRect.height);
+      if (initialHeight > 0) {
+          const nodeContentForApproxHeight = { title: node.title, description: node.description, emoji: node.emoji };
+          const currentApproxHeight = getApproxNodeHeightFromHook(nodeContentForApproxHeight, node.width ?? STANDARD_NODE_WIDTH);
+          const storedHeightForInitial = node.height ?? currentApproxHeight;
+          if (Math.abs(storedHeightForInitial - initialHeight) >=1 ) {
+             onNodeHeightChange(node.id, initialHeight);
+          }
       }
 
-      const resizeObserver = new ResizeObserver(measureAndReport);
+      const resizeObserver = new ResizeObserver(measureAndReportHeight);
       resizeObserver.observe(currentRef);
 
       return () => {
@@ -126,21 +102,11 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       node.title, 
       node.description, 
       node.emoji, 
-      onNodeDimensionsChange, 
-      isBeingManuallyResized, // Add to dependencies
-      getApproxNodeHeightFromHook, // Add to dependencies
-      NODE_CARD_WIDTH, // Constant, but good practice if it were dynamic
-      node.width, // Re-add to observe prop changes from manual resize completion
-      node.height // Re-add to observe prop changes from manual resize completion
+      onNodeHeightChange, 
+      getApproxNodeHeightFromHook,
+      node.width, // If width changes (due to size selection), height might need re-evaluation
+      node.height // Re-check if height prop changes from outside
     ]);
-
-
-  const handleResizeMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    event.stopPropagation(); 
-    if (onInitiateNodeResize) {
-      onInitiateNodeResize(event, node.id);
-    }
-  };
 
   return (
     <div
@@ -151,11 +117,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       draggable
       onDragStart={handleDragStartInternal}
       onClick={(e) => e.stopPropagation()} 
-      onMouseDown={(e) => { 
-         if (!(e.target as HTMLElement).closest('.resize-handle')) {
-            e.stopPropagation();
-         }
-      }}
+      onMouseDown={(e) => e.stopPropagation() } // Simplified, no resize handle
     >
       <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -195,18 +157,10 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
           <div className="h-full"></div> 
         )}
       </div>
-      {onInitiateNodeResize && (
-        <div
-          className="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-primary/60 hover:bg-primary active:bg-primary cursor-nwse-resize rounded-tl-md border-l border-t border-primary-foreground/50 z-10"
-          onMouseDown={handleResizeMouseDown}
-          onClick={(e) => e.stopPropagation()} 
-        />
-      )}
+      {/* Resize handle div removed */}
     </div>
   );
 });
 
 NodeCardComponent.displayName = 'NodeCardComponent';
 export const NodeCard = NodeCardComponent;
-
-    
