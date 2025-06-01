@@ -1,9 +1,9 @@
 
-# SynapseSpark - Mind Mapping Application - Version 0.0.5
+# SnapGraph - Mind Mapping Application - Version 0.0.5
 
 ## Overview
 
-SynapseSpark (v0.0.5) is a web application designed to help users create, organize, and visualize ideas through interactive mind maps. It features a fixed-size viewport with a larger, navigable logical canvas for node placement and editing.
+SnapGraph (v0.0.5) is a web application designed to help users create, organize, and visualize ideas through interactive mind maps. It features a fixed-size viewport with a larger, navigable logical canvas for node placement and editing.
 
 ## Key Features
 

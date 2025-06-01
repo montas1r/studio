@@ -1,7 +1,7 @@
 
 import type { Mindmap } from '@/types/mindmap';
 
-const MINDMAPS_STORAGE_KEY = 'synapseSparkMindmaps';
+const MINDMAPS_STORAGE_KEY = 'snapGraphMindmaps';
 
 export function getMindmapsFromStorage(): Mindmap[] {
   if (typeof window === 'undefined') {

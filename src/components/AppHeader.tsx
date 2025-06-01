@@ -24,7 +24,7 @@ export function AppHeader() {
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
           <Sparkles className="h-6 w-6 text-primary" />
-          <span className="font-bold text-xl">SynapseSpark</span>
+          <span className="font-bold text-xl">SnapGraph</span>
         </Link>
         
         <div className="text-xs text-muted-foreground">

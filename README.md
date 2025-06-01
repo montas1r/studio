@@ -1,4 +1,5 @@
-# Firebase Studio
+
+# SnapGraph
 
 This is a NextJS starter in Firebase Studio.
 

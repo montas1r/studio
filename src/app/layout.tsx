@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SynapseSpark',
+  title: 'SnapGraph',
   description: 'Create, organize, and share mindmaps with AI-powered insights.',
 };
 
