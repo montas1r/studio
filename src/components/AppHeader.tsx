@@ -25,8 +25,11 @@ export function AppHeader() {
         <Link href="/" className="flex items-center space-x-2">
           <Sparkles className="h-6 w-6 text-primary" />
           <span className="font-bold text-xl">SynapseSpark</span>
-          <span className="text-xs text-muted-foreground ml-2">(C) Montasir - 2025</span>
         </Link>
+        
+        <div className="text-xs text-muted-foreground">
+          © Montasir - 2025
+        </div>
         
         {/* {mounted && (
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
