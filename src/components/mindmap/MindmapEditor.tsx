@@ -41,7 +41,7 @@ const deepClone = <T,>(obj: T): T => {
   try {
     return JSON.parse(JSON.stringify(obj));
   } catch (e) {
-    console.error("Deep clone failed, falling back to shallow copy for safety:", e);
+    // console.warn("Deep clone failed, falling back to shallow copy for safety:", e);
     if (Array.isArray(obj)) {
       return [...obj] as any as T;
     } else if (typeof obj === 'object') {
@@ -55,19 +55,21 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const {
     getMindmapById,
     addNode,
-    updateNode: updateNodeDataHook, // This now handles content and size
+    updateNode, 
     deleteNode: deleteNodeFromHook,
     updateNodePosition,
-    updateNodeHeightFromObserver, // Renamed from updateNodeDimensions
+    updateNodeHeightFromObserver, 
     updateMindmap,
     getApproxNodeHeight,
-    getNodeDimensionsForSize,
-    NODE_CARD_WIDTH, // This is STANDARD_NODE_WIDTH
-    // MIN/MAX values below are for ResizeObserver floor/ceiling, not for fixed sizes.
-    MIN_NODE_WIDTH, // This could be MINI_NODE_WIDTH if we want to be strict for observer
-    MAX_NODE_WIDTH, // This could be MASSIVE_NODE_WIDTH
-    MIN_NODE_HEIGHT,
-    MAX_NODE_HEIGHT,
+    getNodeDimensionsForSize, 
+    MINI_NODE_WIDTH,
+    MINI_NODE_DEFAULT_HEIGHT,
+    STANDARD_NODE_WIDTH, 
+    STANDARD_NODE_DEFAULT_HEIGHT,
+    MASSIVE_NODE_WIDTH,
+    MASSIVE_NODE_DEFAULT_HEIGHT,
+    MIN_NODE_HEIGHT, 
+    MAX_NODE_HEIGHT, 
   } = useMindmaps();
 
   const mindmap = getMindmapById(mindmapId);
@@ -101,10 +103,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const canvasNumericWidth = useMemo(() => parseInt(LOGICAL_CANVAS_WIDTH_STR, 10), []);
   const canvasNumericHeight = useMemo(() => parseInt(LOGICAL_CANVAS_HEIGHT_STR, 10), []);
   
-  // Removed resizingNodeInfo state and related drag-resize handlers
-
-  const handleNodeHeightChangeFromObserver = useCallback((nodeId: string, measuredHeight: number) => {
-    // Called by NodeCard's ResizeObserver to report height changes due to content.
+  const handleNodeHeightChange = useCallback((nodeId: string, measuredHeight: number) => {
     if (mindmapId) { 
       updateNodeHeightFromObserver(mindmapId, nodeId, measuredHeight);
     }
@@ -174,16 +173,16 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     allNodesArray.forEach(node => {
-      const nodeWidth = node.width ?? NODE_CARD_WIDTH; // Use standard if not set
-      const nodeHeight = node.height ?? getApproxNodeHeight({title: node.title, description: node.description, emoji: node.emoji}, nodeWidth);
+      const nodeWidth = node.width ?? STANDARD_NODE_WIDTH; 
+      const nodeHeight = node.height ?? getApproxNodeHeight({title: node.title, description: node.description, emoji: node.emoji, size: node.size}, nodeWidth);
       minX = Math.min(minX, node.x);
       minY = Math.min(minY, node.y);
       maxX = Math.max(maxX, node.x + nodeWidth);
       maxY = Math.max(maxY, node.y + nodeHeight);
     });
 
-    const contentWidth = Math.max((allNodesArray[0]?.width ?? NODE_CARD_WIDTH), maxX - minX);
-    const contentHeight = Math.max((allNodesArray[0]?.height ?? getApproxNodeHeight(allNodesArray[0] || null, allNodesArray[0]?.width ?? NODE_CARD_WIDTH)), maxY - minY);
+    const contentWidth = Math.max((allNodesArray[0]?.width ?? STANDARD_NODE_WIDTH), maxX - minX);
+    const contentHeight = Math.max((allNodesArray[0]?.height ?? getApproxNodeHeight(allNodesArray[0] || null, allNodesArray[0]?.width ?? STANDARD_NODE_WIDTH)), maxY - minY);
     
     const PADDING_PERCENT = 0.90;
 
@@ -214,7 +213,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     setScale(newFitScale);
     setPan(clampedFitPan);
-  }, [mindmap, getApproxNodeHeight, clampPan, canvasNumericWidth, canvasNumericHeight, NODE_CARD_WIDTH]);
+  }, [mindmap, getApproxNodeHeight, clampPan, canvasNumericWidth, canvasNumericHeight, STANDARD_NODE_WIDTH]);
 
 
   useEffect(() => {
@@ -283,7 +282,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const handlePanMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (activeTool !== 'pan' || !viewportContainerRef.current) return;
     const target = event.target as HTMLElement;
-    // Updated to ensure clicks on node cards or tool buttons don't initiate pan
     if (target.closest('.node-card-draggable') || target.closest('[data-tool-button]')) return;
     
     event.preventDefault();
@@ -411,7 +409,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       setNewRootNodeTitle(''); setNewRootNodeDescription('');
       toast({ title: "Root Node Added", description: `"${newRootNode.title}" added.` });
       const viewportRect = viewportContainerRef.current.getBoundingClientRect();
-      const nodeWidth = newRootNode.width ?? NODE_CARD_WIDTH;
+      const nodeWidth = newRootNode.width ?? STANDARD_NODE_WIDTH;
       const nodeHeight = newRootNode.height ?? getApproxNodeHeight(newRootNode, nodeWidth);
       const nodeCenterX_logical = newRootNode.x + nodeWidth / 2;
       const nodeCenterY_logical = newRootNode.y + nodeHeight / 2;
@@ -419,14 +417,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const newPanY = viewportRect.height / 2 - nodeCenterY_logical * scale;
       setPan(clampPan(newPanX, newPanY, scale));
     }
-  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, getApproxNodeHeight, beforeMutation, scale, clampPan, NODE_CARD_WIDTH]);
+  }, [newRootNodeTitle, newRootNodeDescription, mindmap, addNode, toast, getApproxNodeHeight, beforeMutation, scale, clampPan, STANDARD_NODE_WIDTH]);
 
   const handleAddChildNode = useCallback((parentId: string) => {
     if (!mindmap) return;
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
     
-    const { width: defaultWidth } = getNodeDimensionsForSize('standard');
+    const { width: defaultWidth, defaultHeight } = getNodeDimensionsForSize('standard');
     const tempNewNode: NodeData = {
       id: `temp-${Date.now()}`,
       title: '', description: "", emoji: "➕", parentId: parentId, childIds: [],
@@ -434,7 +432,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       y: parentNode.y + (parentNode.height ?? getApproxNodeHeight(parentNode, parentNode.width ?? defaultWidth)) + 50,
       size: 'standard',
       width: defaultWidth, 
-      height: getApproxNodeHeight({title: '', description: '', emoji: "➕"}, defaultWidth),
+      height: getApproxNodeHeight({title: '', description: '', emoji: "➕", size: 'standard'}, defaultWidth),
     };
     setEditingNode(tempNewNode);
     setIsEditDialogOpen(true);
@@ -449,16 +447,30 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!mindmap || !editingNode) return;
     beforeMutation();
     
-    if (editingNode.id.startsWith('temp-')) { // Creating a new node
-      const savedNode = addNode(mindmap.id, editingNode.parentId, data); // addNode now handles initial size
+    const finalSize = newSize || editingNode.size || 'standard'; 
+    const { width: baseWidthForSize, defaultHeight: defaultHeightForSize } = getNodeDimensionsForSize(finalSize);
+    const actualHeight = getApproxNodeHeight(
+        { title: data.title, description: data.description, emoji: data.emoji, size: finalSize }, 
+        baseWidthForSize
+    );
+    const finalHeight = Math.max(defaultHeightForSize, actualHeight);
+
+    if (editingNode.id.startsWith('temp-')) { 
+      const savedNode = addNode(mindmap.id, editingNode.parentId, data); 
       if (savedNode) toast({ title: "Node Created", description: `Node "${savedNode.title}" added.` });
-    } else { // Editing an existing node
-      updateNodeDataHook(mindmap.id, editingNode.id, data, newSize); // updateNodeDataHook now takes newSize
+    } else { 
+      updateNode(editingNode.id, { 
+        ...data, 
+        size: finalSize,
+        width: baseWidthForSize, 
+        height: finalHeight,     
+      });
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
     setEditingNode(null);
     setIsEditDialogOpen(false);
-  }, [mindmap, editingNode, addNode, updateNodeDataHook, toast, beforeMutation]);
+  }, [mindmap, editingNode, addNode, updateNode, toast, beforeMutation, getNodeDimensionsForSize, getApproxNodeHeight]);
+
 
   const requestDeleteNode = useCallback((nodeId: string) => {
     if (!mindmap) return;
@@ -520,7 +532,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     const nodeToDrag = mindmap.data.nodes[nodeId];
     if (!nodeToDrag) return;
-    const nodeWidth = nodeToDrag.width ?? NODE_CARD_WIDTH; // Use standard width if not set
+    const nodeWidth = nodeToDrag.width ?? STANDARD_NODE_WIDTH; 
     const nodeHeight = nodeToDrag.height ?? getApproxNodeHeight(nodeToDrag, nodeWidth);
 
     newX_logical = Math.max(0, Math.min(newX_logical, canvasNumericWidth - nodeWidth));
@@ -528,7 +540,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
 
     beforeMutation();
     updateNodePosition(mindmap.id, nodeId, newX_logical, newY_logical);
-  }, [mindmap, pan, scale, activeTool, beforeMutation, canvasNumericWidth, canvasNumericHeight, getApproxNodeHeight, updateNodePosition, NODE_CARD_WIDTH]);
+  }, [mindmap, pan, scale, activeTool, beforeMutation, canvasNumericWidth, canvasNumericHeight, getApproxNodeHeight, updateNodePosition, STANDARD_NODE_WIDTH]);
 
   const handleExportJson = useCallback(() => {
     if (!mindmap) return;
@@ -541,8 +553,6 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     toast({ title: "Exported", description: "Mindmap data exported as JSON." });
   }, [mindmap, toast]);
 
-  // Removed drag-resize handlers: handleInitiateNodeResize, handleGlobalResizeMouseMove, handleGlobalResizeMouseUp
-  // Removed useEffect for drag-resize global listeners
 
   if (!mindmap) {
     return (
@@ -598,7 +608,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           >
             <div
               ref={canvasContentRef}
-              className="relative bg-card border-2 border-dashed border-sky-300" // Changed border-primary to border-sky-300 for better visibility
+              className="relative bg-card border-2 border-dashed border-sky-300" 
               style={{ width: LOGICAL_CANVAS_WIDTH_STR, height: LOGICAL_CANVAS_HEIGHT_STR, transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transformOrigin: '0 0' }}
             >
               <svg
@@ -609,15 +619,14 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   const parentNode = node.parentId ? mindmap.data.nodes[node.parentId] : null;
                   if (!parentNode) return null;
 
-                  const parentNodeWidth = parentNode.width ?? NODE_CARD_WIDTH;
+                  const parentNodeWidth = parentNode.width ?? STANDARD_NODE_WIDTH;
                   const parentNodeHeight = parentNode.height ?? getApproxNodeHeight(parentNode, parentNodeWidth);
                   
                   const parentCardCenterX = (parentNode.x ?? 0) + parentNodeWidth / 2;
                   const parentCardBottomY = (parentNode.y ?? 0) + parentNodeHeight;
 
-                  const childNodeWidth = node.width ?? NODE_CARD_WIDTH;
-                  // const childNodeHeight = node.height ?? getApproxNodeHeight(node, childNodeWidth); // Not needed for wire drawing start point
-
+                  const childNodeWidth = node.width ?? STANDARD_NODE_WIDTH;
+                  
                   const childCardCenterX = (node.x ?? 0) + childNodeWidth / 2;
                   const childCardTopY = (node.y ?? 0);
 
@@ -639,8 +648,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   onDelete={requestDeleteNode}
                   onAddChild={handleAddChildNode}
                   onDragStart={(e) => handleNodeDragStart(e, nodeData.id)}
-                  onNodeHeightChange={handleNodeHeightChangeFromObserver} 
+                  onNodeHeightChange={handleNodeHeightChange} 
                   getApproxNodeHeightFromHook={getApproxNodeHeight}
+                  STANDARD_NODE_WIDTH_FROM_HOOK={STANDARD_NODE_WIDTH}
                   className="node-card-draggable"
                 />
               ))}
@@ -686,3 +696,4 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </TooltipProvider>
   );
 }
+
