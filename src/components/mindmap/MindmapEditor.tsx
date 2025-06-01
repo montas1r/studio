@@ -30,6 +30,7 @@ const FIXED_VIEWPORT_HEIGHT = 800;
 const LOGICAL_CANVAS_WIDTH_STR = '2000px';
 const LOGICAL_CANVAS_HEIGHT_STR = '2000px';
 
+
 interface MindmapEditorProps {
   mindmapId: string;
 }
@@ -41,7 +42,6 @@ const deepClone = <T,>(obj: T): T => {
   try {
     return JSON.parse(JSON.stringify(obj));
   } catch (e) {
-    // console.warn("Deep clone failed, falling back to shallow copy for safety:", e);
     if (Array.isArray(obj)) {
       return [...obj] as any as T;
     } else if (typeof obj === 'object') {
@@ -55,19 +55,18 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const {
     getMindmapById,
     addNode,
-    updateNode, 
+    updateNode, // Destructure the correct updateNode
     deleteNode: deleteNodeFromHook,
     updateNodePosition,
     updateNodeHeightFromObserver, 
     updateMindmap,
     getApproxNodeHeight,
     getNodeDimensionsForSize, 
-    MINI_NODE_WIDTH,
-    MINI_NODE_DEFAULT_HEIGHT,
+    updateNodeSize, // Destructure new function
+    // Constants for node sizes
+    MINI_NODE_WIDTH, // Not directly used in editor, but good to have if needed
     STANDARD_NODE_WIDTH, 
-    STANDARD_NODE_DEFAULT_HEIGHT,
-    MASSIVE_NODE_WIDTH,
-    MASSIVE_NODE_DEFAULT_HEIGHT,
+    MASSIVE_NODE_WIDTH, // Not directly used
     MIN_NODE_HEIGHT, 
     MAX_NODE_HEIGHT, 
   } = useMindmaps();
@@ -447,8 +446,9 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     if (!mindmap || !editingNode) return;
     beforeMutation();
     
-    const finalSize = newSize || editingNode.size || 'standard'; 
+    const finalSize = newSize || editingNode.size || 'standard';
     const { width: baseWidthForSize, defaultHeight: defaultHeightForSize } = getNodeDimensionsForSize(finalSize);
+    
     const actualHeight = getApproxNodeHeight(
         { title: data.title, description: data.description, emoji: data.emoji, size: finalSize }, 
         baseWidthForSize
@@ -459,6 +459,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const savedNode = addNode(mindmap.id, editingNode.parentId, data); 
       if (savedNode) toast({ title: "Node Created", description: `Node "${savedNode.title}" added.` });
     } else { 
+      // Ensure updateNode is called correctly
       updateNode(editingNode.id, { 
         ...data, 
         size: finalSize,
@@ -649,7 +650,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   onAddChild={handleAddChildNode}
                   onDragStart={(e) => handleNodeDragStart(e, nodeData.id)}
                   onNodeHeightChange={handleNodeHeightChange} 
-                  getApproxNodeHeightFromHook={getApproxNodeHeight}
+                  getApproxNodeHeightFromHook={getApproxNodeHeight} 
                   STANDARD_NODE_WIDTH_FROM_HOOK={STANDARD_NODE_WIDTH}
                   className="node-card-draggable"
                 />
@@ -696,4 +697,3 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     </TooltipProvider>
   );
 }
-

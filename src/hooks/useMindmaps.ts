@@ -2,29 +2,23 @@
 "use client";
 
 import type { Mindmap, CreateMindmapInput, NodeData, NodesObject, EditNodeInput, NodeSize } from '@/types/mindmap';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback }
+from 'react';
 import { getMindmapsFromStorage, saveMindmapsToStorage } from '@/lib/localStorage';
 import { v4 as uuidv4 } from 'uuid';
 
 const LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT = 2000;
 const Y_OFFSET_FOR_FIRST_ROOT = 100;
 
-// Node Size Definitions
+// Node Size Definitions (Exported)
 export const MINI_NODE_WIDTH = 200;
 export const MINI_NODE_DEFAULT_HEIGHT = 80;
-export const STANDARD_NODE_WIDTH = 320;
+export const STANDARD_NODE_WIDTH = 320; 
 export const STANDARD_NODE_DEFAULT_HEIGHT = 120;
 export const MASSIVE_NODE_WIDTH = 480;
 export const MASSIVE_NODE_DEFAULT_HEIGHT = 200;
 
-export const NODE_CARD_WIDTH = STANDARD_NODE_WIDTH; 
-
-const ROOT_X_SPACING = STANDARD_NODE_WIDTH + 50;
-const CHILD_X_OFFSET = 0;
-const CHILD_Y_OFFSET = 180;
-
-export const MIN_NODE_WIDTH = 200; 
-export const MAX_NODE_WIDTH = 600; 
+// Absolute min/max constraints
 export const MIN_NODE_HEIGHT = 80; 
 export const MAX_NODE_HEIGHT = 800;
 
@@ -45,37 +39,37 @@ export function useMindmaps() {
     }
   }, []);
 
-  const getApproxNodeHeight = useCallback((nodeContent: Partial<Pick<NodeData, 'title' | 'description' | 'emoji' | 'width' | 'size'>>, currentWidthFromNodeData?: number): number => {
+  const getApproxNodeHeight = useCallback((nodeContent: Partial<Pick<NodeData, 'title' | 'description' | 'emoji' | 'size'>>, currentWidth: number): number => {
     if (!nodeContent) return MIN_NODE_HEIGHT;
     
     const nodeSize = nodeContent.size || 'standard';
+    // Use the passed currentWidth, which should reflect the node's actual or target width
+    const safeCurrentWidth = currentWidth > 0 ? currentWidth : STANDARD_NODE_WIDTH;
     const { defaultHeight: defaultHeightForSize } = getNodeDimensionsForSize(nodeSize);
-    const currentCardWidth = currentWidthFromNodeData ?? nodeContent.width ?? getNodeDimensionsForSize(nodeSize).width;
 
     let height = 0;
-    height += (16 + 28); 
-
-    const safeCurrentWidth = currentCardWidth > 0 ? currentCardWidth : STANDARD_NODE_WIDTH;
+    height += (16 + 28); // Top padding (py-2 from header) + header text/icons approx
 
     if (nodeContent.title) {
-      const titleCharsPerLine = Math.max(1, (safeCurrentWidth - (2 * 16) - (nodeContent.emoji ? 32 : 0) - 70) / 10);
+      const titleCharsPerLine = Math.max(1, (safeCurrentWidth - (2 * 16) - (nodeContent.emoji ? 32 : 0) - 70) / 10); // Approx 10px per char for title
       const numTitleLines = Math.ceil((nodeContent.title.length / titleCharsPerLine)) + (nodeContent.title.split('\n').length -1);
       if (numTitleLines > 1) {
-        height += (numTitleLines - 1) * 28; 
+        height += (numTitleLines - 1) * 28; // Approx line height for title
       }
     }
     
-    height += 24; 
+    height += 24; // py-3 for description box (top+bottom padding)
     if (nodeContent.description && nodeContent.description.trim() !== "") {
-      const descCharsPerLine = Math.max(1, (safeCurrentWidth - (2 * 16)) / 8); 
+      const descCharsPerLine = Math.max(1, (safeCurrentWidth - (2 * 16)) / 8); // Approx 8px per char for description
       const numDescLines = Math.ceil((nodeContent.description.length / descCharsPerLine)) + (nodeContent.description.split('\n').length -1);
-      height += Math.max(24, numDescLines * 20); 
+      height += Math.max(24, numDescLines * 20); // Approx line height for description, min 24px for the box
     } else {
-      height += 24; 
+      height += 24; // min-h-[24px] for empty description box
     }
     
-    height += 4; 
-    return Math.max(defaultHeightForSize, Math.max(MIN_NODE_HEIGHT, height));
+    height += 4; // Bottom padding (py-3 already counted, this is for border/shadow perhaps)
+    
+    return Math.max(MIN_NODE_HEIGHT, Math.max(defaultHeightForSize, Math.round(height)));
   }, [getNodeDimensionsForSize]);
 
 
@@ -84,7 +78,6 @@ export function useMindmaps() {
     setMindmaps(loadedMindmaps.map(m => {
       const migratedNodes: NodesObject = {};
       let nextRootX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (STANDARD_NODE_WIDTH / 2);
-
       const rootsToProcess = Array.isArray(m.data.rootNodeIds) ? [...m.data.rootNodeIds] : [];
 
       const assignPositionsAndSizes = (nodeId: string, parentNodeData?: NodeData, siblingIndex: number = 0, isFirstRootInMap: boolean = false) => {
@@ -95,18 +88,20 @@ export function useMindmaps() {
         const { width: defaultWidthForSize, defaultHeight: defaultHeightForSizeFallback } = getNodeDimensionsForSize(nodeSize);
         
         const currentWidth = node.width ?? defaultWidthForSize;
-        // Ensure height is at least the default for its size, and also respects content-based calculation
         const calculatedContentHeight = getApproxNodeHeight({title: node.title, description: node.description, emoji: node.emoji, size: nodeSize}, currentWidth);
         const finalHeight = node.height ?? Math.max(defaultHeightForSizeFallback, calculatedContentHeight);
 
-
         let x, y;
-
         if (node.x === undefined || node.y === undefined) {
+          // ... (positioning logic - kept from previous versions)
+          const CHILD_X_OFFSET = 0; // Assuming these are defined or replace with values
+          const CHILD_Y_OFFSET = 180;
+          const ROOT_X_SPACING = STANDARD_NODE_WIDTH + 50;
+
           if (parentNodeData) {
             const parentX = parentNodeData.x ?? nextRootX;
             const parentY = parentNodeData.y ?? Y_OFFSET_FOR_FIRST_ROOT;
-            const parentCalculatedHeight = getApproxNodeHeight(parentNodeData, parentNodeData.width);
+            const parentCalculatedHeight = getApproxNodeHeight(parentNodeData, parentNodeData.width ?? STANDARD_NODE_WIDTH);
             const parentNodeHeightValue = parentNodeData.height ?? parentCalculatedHeight;
             const parentNodeWidthValue = parentNodeData.width ?? STANDARD_NODE_WIDTH;
 
@@ -130,11 +125,11 @@ export function useMindmaps() {
                 nextRootX += currentWidth + (ROOT_X_SPACING - STANDARD_NODE_WIDTH) ;
             }
           }
-          migratedNodes[nodeId] = { ...node, x, y, width: currentWidth, height: finalHeight, size: nodeSize };
+           migratedNodes[nodeId] = { ...node, x, y, width: currentWidth, height: finalHeight, size: nodeSize };
         } else {
            migratedNodes[nodeId] = { ...node, width: currentWidth, height: finalHeight, size: nodeSize };
-          if (!parentNodeData && node.x !== undefined && (node.x + currentWidth + ROOT_X_SPACING - STANDARD_NODE_WIDTH) > nextRootX) {
-            nextRootX = node.x + currentWidth + ROOT_X_SPACING - STANDARD_NODE_WIDTH;
+          if (!parentNodeData && node.x !== undefined && (node.x + currentWidth + (STANDARD_NODE_WIDTH + 50) - STANDARD_NODE_WIDTH) > nextRootX) {
+            nextRootX = node.x + currentWidth + (STANDARD_NODE_WIDTH + 50) - STANDARD_NODE_WIDTH;
           }
         }
 
@@ -163,7 +158,7 @@ export function useMindmaps() {
             height: finalHeight,
             size: nodeSize,
           };
-          if (node.x === undefined && !node.parentId) nextRootX += (currentWidth + ROOT_X_SPACING - STANDARD_NODE_WIDTH);
+          if (node.x === undefined && !node.parentId) nextRootX += (currentWidth + (STANDARD_NODE_WIDTH + 50) - STANDARD_NODE_WIDTH);
         }
       });
 
@@ -244,7 +239,7 @@ export function useMindmaps() {
     const currentNodes = mindmap.data.nodes;
     const currentRootNodeIds = Array.isArray(mindmap.data.rootNodeIds) ? mindmap.data.rootNodeIds : [];
     const existingRootNodes = currentRootNodeIds.map(id => currentNodes[id]).filter(Boolean) as NodeData[];
-
+    
     const initialNodeSize: NodeSize = 'standard'; 
     const { width: initialWidth, defaultHeight: defaultHeightForInitialSize } = getNodeDimensionsForSize(initialNodeSize);
     const initialContentHeight = getApproxNodeHeight(
@@ -253,6 +248,10 @@ export function useMindmaps() {
     );
     const finalInitialHeight = Math.max(defaultHeightForInitialSize, initialContentHeight);
 
+    // ... (positioning logic from previous versions, adapted for initialWidth)
+      const CHILD_X_OFFSET = 0;
+      const CHILD_Y_OFFSET = 180;
+      const ROOT_X_SPACING = STANDARD_NODE_WIDTH + 50;
 
     if (parentId) {
       const parentNode = currentNodes[parentId];
@@ -260,14 +259,10 @@ export function useMindmaps() {
         const parentNodeX = parentNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (STANDARD_NODE_WIDTH / 2);
         const parentNodeY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
         const parentNodeWidthValue = parentNode.width ?? STANDARD_NODE_WIDTH;
-        
-        const parentCalculatedHeight = getApproxNodeHeight(parentNode, parentNode.width);
+        const parentCalculatedHeight = getApproxNodeHeight(parentNode, parentNode.width ?? STANDARD_NODE_WIDTH);
         const parentNodeHeightValue = parentNode.height ?? parentCalculatedHeight;
-
         const siblingCount = (parentNode.childIds || []).length;
-
         y = parentNodeY + parentNodeHeightValue + CHILD_Y_OFFSET;
-
         if (siblingCount > 0) {
            const totalWidthOfChildren = (siblingCount + 1) * initialWidth + siblingCount * 30; 
            const startX = parentNodeX + (parentNodeWidthValue / 2) - (totalWidthOfChildren / 2);
@@ -303,7 +298,7 @@ export function useMindmaps() {
       childIds: [],
       x: x,
       y: y,
-      size: initialNodeSize,
+      size: initialNodeSize, // Set initial size
       width: initialWidth, 
       height: finalInitialHeight,
     };
@@ -322,43 +317,58 @@ export function useMindmaps() {
         updatedRootNodeIds.push(newNodeId);
       }
     }
-    const updatedMindmap = updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
-    return updatedMindmap ? updatedMindmap.data.nodes[newNodeId] : undefined;
+    const updatedMindmapData = updateMindmap(mindmapId, { data: { nodes: updatedNodes, rootNodeIds: updatedRootNodeIds } });
+    return updatedMindmapData ? updatedMindmapData.data.nodes[newNodeId] : undefined;
   }, [getMindmapById, updateMindmap, getApproxNodeHeight, getNodeDimensionsForSize]);
 
-  // This function is called when the user selects a new size in EditNodeDialog
-  const updateNodeSize = useCallback((mindmapId: string, nodeId: string, newSize: NodeSize) => {
+
+  const updateNode = useCallback((nodeId: string, updatedNodePartialData: Partial<NodeData>) => {
     setMindmaps(prevMindmaps =>
       prevMindmaps.map(m => {
-        if (m.id === mindmapId) {
-          const mindmapNodes = m.data.nodes;
-          const existingNode = mindmapNodes[nodeId];
-          if (!existingNode) return m;
-
-          const { width: newWidth, defaultHeight: newDefaultHeightForSize } = getNodeDimensionsForSize(newSize);
+        if (m.data.nodes && m.data.nodes[nodeId]) {
+          const existingNode = m.data.nodes[nodeId];
           
-          // Recalculate height based on new width and existing content, ensuring it meets the default for the new size.
-          const newContentHeight = getApproxNodeHeight(
-            { title: existingNode.title, description: existingNode.description, emoji: existingNode.emoji, size: newSize },
-            newWidth
-          );
-          const finalNewHeight = Math.max(newDefaultHeightForSize, newContentHeight);
-
-
-          const updatedNodeData: NodeData = {
+          const updatedNode: NodeData = {
             ...existingNode,
-            size: newSize,
-            width: newWidth,
-            height: finalNewHeight,
+            ...updatedNodePartialData,
           };
+  
+          // If size or width changed, and height was not explicitly provided in partial data,
+          // recalculate height to ensure content fit.
+          // This is important if only size is changed, or if title/description changes.
+          if (
+            (updatedNodePartialData.size && updatedNodePartialData.size !== existingNode.size) ||
+            (updatedNodePartialData.width && updatedNodePartialData.width !== existingNode.width) ||
+            (updatedNodePartialData.title && updatedNodePartialData.title !== existingNode.title) ||
+            (updatedNodePartialData.description && updatedNodePartialData.description !== existingNode.description) ||
+            (updatedNodePartialData.emoji && updatedNodePartialData.emoji !== existingNode.emoji)
+          ) {
+            if(updatedNodePartialData.height === undefined) { // Only if height isn't being explicitly set
+                 const { defaultHeight: newDefaultHeight } = getNodeDimensionsForSize(updatedNode.size);
+                 const newApproxHeight = getApproxNodeHeight(
+                    { title: updatedNode.title, description: updatedNode.description, emoji: updatedNode.emoji, size: updatedNode.size },
+                    updatedNode.width ?? STANDARD_NODE_WIDTH
+                 );
+                 updatedNode.height = Math.max(newDefaultHeight, newApproxHeight);
+            }
+          }
 
-          const updatedNodes: NodesObject = { ...mindmapNodes, [nodeId]: updatedNodeData };
-          return { ...m, data: { ...m.data, nodes: updatedNodes }, updatedAt: new Date().toISOString() };
+
+          const updatedNodes = {
+            ...m.data.nodes,
+            [nodeId]: updatedNode,
+          };
+  
+          return {
+            ...m,
+            data: { ...m.data, nodes: updatedNodes },
+            updatedAt: new Date().toISOString(),
+          };
         }
         return m;
       })
     );
-  }, [getApproxNodeHeight, getNodeDimensionsForSize]);
+  }, [getNodeDimensionsForSize, getApproxNodeHeight]);
   
   const updateNodePosition = useCallback((mindmapId: string, nodeId: string, x: number, y: number): Mindmap | undefined => {
     const mindmap = getMindmapById(mindmapId);
@@ -369,7 +379,6 @@ export function useMindmaps() {
     return updateMindmap(mindmapId, { data: { ...mindmap.data, nodes: updatedNodes }});
   }, [getMindmapById, updateMindmap]);
 
-  // updateNodeHeightFromObserver is called by NodeCard's ResizeObserver
   const updateNodeHeightFromObserver = useCallback((mindmapId: string, nodeId: string, measuredHeight: number) => {
     setMindmaps(prevMindmaps =>
       prevMindmaps.map(m => {
@@ -437,6 +446,33 @@ export function useMindmaps() {
     updateMindmap(mindmapId, { data: { nodes: newNodes, rootNodeIds: newRootNodeIds } });
   }, [getMindmapById, updateMindmap]);
 
+  const updateNodeSize = useCallback((mindmapId: string, nodeId: string, newSize: NodeSize) => {
+      setMindmaps(prevMindmaps =>
+        prevMindmaps.map(m => {
+          if (m.id === mindmapId && m.data.nodes[nodeId]) {
+            const existingNode = m.data.nodes[nodeId];
+            const { width: newWidth, defaultHeight: newDefaultHeight } = getNodeDimensionsForSize(newSize);
+            
+            const newApproxHeight = getApproxNodeHeight(
+              { title: existingNode.title, description: existingNode.description, emoji: existingNode.emoji, size: newSize },
+              newWidth 
+            );
+            const finalNewHeight = Math.max(newDefaultHeight, newApproxHeight);
+
+            const updatedNode = {
+              ...existingNode,
+              size: newSize,
+              width: newWidth,
+              height: finalNewHeight,
+            };
+            const updatedNodes = { ...m.data.nodes, [nodeId]: updatedNode };
+            return { ...m, data: { ...m.data, nodes: updatedNodes }, updatedAt: new Date().toISOString() };
+          }
+          return m;
+        })
+      );
+  }, [getNodeDimensionsForSize, getApproxNodeHeight]);
+
 
   return {
     mindmaps,
@@ -446,17 +482,21 @@ export function useMindmaps() {
     updateMindmap,
     deleteMindmap,
     addNode,
-    updateNodeSize, 
+    updateNode, // Ensure this is returned
     updateNodePosition,
     updateNodeHeightFromObserver, 
     deleteNode,
     getApproxNodeHeight,
     getNodeDimensionsForSize,
-    NODE_CARD_WIDTH, 
-    MIN_NODE_WIDTH, 
-    MAX_NODE_WIDTH,
+    updateNodeSize, // Return the new function
+    // Export constants
+    MINI_NODE_WIDTH,
+    MINI_NODE_DEFAULT_HEIGHT,
+    STANDARD_NODE_WIDTH,
+    STANDARD_NODE_DEFAULT_HEIGHT,
+    MASSIVE_NODE_WIDTH,
+    MASSIVE_NODE_DEFAULT_HEIGHT,
     MIN_NODE_HEIGHT,
     MAX_NODE_HEIGHT,
   };
 }
-
