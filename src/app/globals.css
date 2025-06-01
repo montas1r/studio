@@ -153,10 +153,10 @@
 
   /* Prose styles for Markdown rendering in NodeCard */
   .prose {
-    @apply text-sm text-inherit; /* Inherit color from card's description text */
+    @apply text-sm text-current; /* Inherit color from card's description text */
   }
   .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-    @apply font-semibold my-3 text-inherit;
+    @apply font-semibold my-3 text-current;
   }
   .prose h1 { @apply text-xl; }
   .prose h2 { @apply text-lg; }
@@ -222,5 +222,3 @@
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
-
-```
