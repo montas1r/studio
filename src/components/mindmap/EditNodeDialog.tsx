@@ -18,7 +18,7 @@ import type { EditNodeInput, NodeData, NodeSize } from '@/types/mindmap';
 import { summarizeNodeContent, type SummarizeNodeContentInput } from '@/ai/flows/summarize-node';
 import { Sparkles, Loader2, Ruler } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+// import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Keep if used elsewhere, not for size now
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
@@ -26,7 +26,7 @@ interface EditNodeDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   node: NodeData | null; 
-  onSave: (nodeId: string, data: EditNodeInput, newSize?: NodeSize) => void; // Added newSize
+  onSave: (nodeId: string, data: EditNodeInput, newSize?: NodeSize) => void;
 }
 
 export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeDialogProps) {
@@ -44,7 +44,6 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
       setEmoji(node.emoji || '');
       setSelectedNodeSize(node.size || 'standard');
     } else {
-      // Reset for new node creation if dialog is repurposed
       setTitle('');
       setDescription('');
       setEmoji('');
@@ -58,10 +57,10 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
         node.id, 
         { 
           title: title.trim(),
-          description,
+          description, // Description will be saved as Markdown
           emoji: emoji.trim() || undefined,
         },
-        selectedNodeSize // Pass the selected size
+        selectedNodeSize
       );
       onOpenChange(false); 
     }
@@ -78,9 +77,9 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
     }
     setIsSummarizing(true);
     try {
-      const input: SummarizeNodeContentInput = { content: description };
+      const input: SummarizeNodeContentInput = { content: description }; // Summarize Markdown
       const result = await summarizeNodeContent(input);
-      setDescription(result.summary);
+      setDescription(result.summary); // Resulting summary might also be Markdown or plain text
       toast({
         title: "Content Summarized",
         description: "The node description has been updated with the AI summary.",
@@ -144,7 +143,7 @@ export function EditNodeDialog({ isOpen, onOpenChange, node, onSave }: EditNodeD
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="min-h-[100px]"
-                placeholder="Node Description"
+                placeholder="Node Description (Markdown supported)" // Updated placeholder
               />
               <Button onClick={handleSummarize} disabled={isSummarizing || !description.trim()} variant="outline" size="sm">
                 {isSummarizing ? (

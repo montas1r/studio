@@ -1,12 +1,14 @@
 
 "use client";
 
-import type { NodeData } from '@/types/mindmap';
+import type { NodeData, NodeSize } from '@/types/mindmap';
 import { Button } from "@/components/ui/button";
 import { Edit3, Trash2, PlusCircle } from 'lucide-react';
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { STANDARD_NODE_WIDTH, MIN_NODE_HEIGHT } from '@/hooks/useMindmaps'; // STANDARD_NODE_WIDTH is 320px
+import { STANDARD_NODE_WIDTH } from '@/hooks/useMindmaps'; // Default width if node.width not set
+import { marked } from 'marked'; // Import marked
+
 
 interface NodeCardProps {
   node: NodeData;
@@ -14,8 +16,9 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
-  onNodeHeightChange?: (nodeId: string, measuredHeight: number) => void; // Renamed, only for height
-  getApproxNodeHeightFromHook: (nodeContent: Partial<Pick<NodeData, 'title' | 'description' | 'emoji'>>, currentWidth: number) => number;
+  onNodeHeightChange?: (nodeId: string, measuredHeight: number) => void;
+  isBeingManuallyResized?: boolean; // To pause observer during manual drag
+  getApproxNodeHeightFromHook: (nodeContent: Partial<Pick<NodeData, 'title' | 'description' | 'emoji' | 'size'>>, currentWidth: number) => number;
   className?: string;
 }
 
@@ -26,6 +29,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onAddChild,
   onDragStart,
   onNodeHeightChange,
+  isBeingManuallyResized,
   getApproxNodeHeightFromHook,
   className,
 }) => {
@@ -37,7 +41,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
     left: `${node.x}px`,
     top: `${node.y}px`,
     width: node.width ? `${node.width}px` : `${STANDARD_NODE_WIDTH}px`,
-    height: node.height ? `${node.height}px` : undefined, 
+    height: node.height ? `${node.height}px` : undefined,
   };
 
   const themeBgClass = isRoot ? "bg-primary" : "bg-accent";
@@ -48,25 +52,23 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   const descriptionBgClass = 'bg-slate-100 dark:bg-slate-800';
   const descriptionTextColorClass = 'text-slate-700 dark:text-slate-200';
 
-  // Width is now set by inline style via cardPositionStyle
-  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2"; 
+  const cardBaseClasses = "flex flex-col cursor-grab transition-all duration-150 ease-out overflow-hidden rounded-2xl shadow-lg border-2";
   const currentCardClasses = cn(cardBaseClasses, themeBgClass, themeBorderClass, className);
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
-    // No resize handle to check against anymore
     onDragStart(event, node.id);
   };
 
   useEffect(() => {
     const currentRef = nodeRef.current;
-    if (currentRef && onNodeHeightChange) {
+    if (currentRef && onNodeHeightChange && !isBeingManuallyResized) {
       const measureAndReportHeight = () => {
-        if (!currentRef) return;
+        if (!currentRef || isBeingManuallyResized) return;
         const { height: measuredHeightDOM } = currentRef.getBoundingClientRect();
         const newHeight = Math.round(measuredHeightDOM);
 
         if (newHeight > 0) {
-          const nodeContentForApproxHeight = { title: node.title, description: node.description, emoji: node.emoji };
+          const nodeContentForApproxHeight = { title: node.title, description: node.description, emoji: node.emoji, size: node.size };
           const currentApproxHeight = getApproxNodeHeightFromHook(nodeContentForApproxHeight, node.width ?? STANDARD_NODE_WIDTH);
           const storedHeight = node.height ?? currentApproxHeight;
 
@@ -78,8 +80,8 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       
       const initialRect = currentRef.getBoundingClientRect();
       const initialHeight = Math.round(initialRect.height);
-      if (initialHeight > 0) {
-          const nodeContentForApproxHeight = { title: node.title, description: node.description, emoji: node.emoji };
+      if (initialHeight > 0 && !isBeingManuallyResized) {
+          const nodeContentForApproxHeight = { title: node.title, description: node.description, emoji: node.emoji, size: node.size };
           const currentApproxHeight = getApproxNodeHeightFromHook(nodeContentForApproxHeight, node.width ?? STANDARD_NODE_WIDTH);
           const storedHeightForInitial = node.height ?? currentApproxHeight;
           if (Math.abs(storedHeightForInitial - initialHeight) >=1 ) {
@@ -102,11 +104,26 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       node.title, 
       node.description, 
       node.emoji, 
+      node.size, // Re-check if size changes
+      node.width, // Re-check if width prop changes
+      node.height, // Re-check if height prop changes
       onNodeHeightChange, 
       getApproxNodeHeightFromHook,
-      node.width, // If width changes (due to size selection), height might need re-evaluation
-      node.height // Re-check if height prop changes from outside
+      STANDARD_NODE_WIDTH,
+      isBeingManuallyResized, // Important: Re-evaluate if manual resize state changes
     ]);
+
+  const parsedDescription = useMemo(() => {
+    if (node.description) {
+      // Configure marked to add line breaks for newlines in Markdown
+      marked.setOptions({
+        breaks: true, // Convert \n to <br>
+        gfm: true,    // Enable GitHub Flavored Markdown (includes breaks)
+      });
+      return marked.parse(node.description);
+    }
+    return '';
+  }, [node.description]);
 
   return (
     <div
@@ -117,7 +134,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       draggable
       onDragStart={handleDragStartInternal}
       onClick={(e) => e.stopPropagation()} 
-      onMouseDown={(e) => e.stopPropagation() } // Simplified, no resize handle
+      onMouseDown={(e) => e.stopPropagation() }
     >
       <div className={cn("flex items-center justify-between px-4 py-2", headerTextColorClass)} >
         <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -146,18 +163,20 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       </div>
 
       <div className={cn(
-          "px-4 py-3 flex-grow", 
+          "px-4 py-3 flex-grow overflow-y-auto", // Added overflow-y-auto
           descriptionBgClass,
           descriptionTextColorClass,
           !node.description && "min-h-[24px]" 
       )}>
         {node.description ? (
-          <p className={cn("text-sm whitespace-pre-wrap leading-relaxed break-words")}>{node.description}</p>
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none leading-relaxed break-words" // Added prose classes
+            dangerouslySetInnerHTML={{ __html: parsedDescription }}
+          />
         ) : (
           <div className="h-full"></div> 
         )}
       </div>
-      {/* Resize handle div removed */}
     </div>
   );
 });

@@ -150,6 +150,70 @@
     scrollbar-width: thin; /* "auto" or "thin" */
     scrollbar-color: hsl(var(--muted)) hsl(var(--secondary) / 0.5); /* thumb and track color */
   }
+
+  /* Prose styles for Markdown rendering in NodeCard */
+  .prose {
+    @apply text-sm text-inherit; /* Inherit color from card's description text */
+  }
+  .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    @apply font-semibold my-3 text-inherit;
+  }
+  .prose h1 { @apply text-xl; }
+  .prose h2 { @apply text-lg; }
+  .prose h3 { @apply text-base; }
+  .prose p {
+    @apply my-2;
+  }
+  .prose strong {
+    @apply font-bold;
+  }
+  .prose em {
+    @apply italic;
+  }
+  .prose a {
+    @apply text-primary underline hover:text-primary/80;
+  }
+  .prose ul, .prose ol {
+    @apply my-2 pl-5;
+  }
+  .prose ul {
+    @apply list-disc;
+  }
+  .prose ol {
+    @apply list-decimal;
+  }
+  .prose li {
+    @apply my-0.5;
+  }
+  .prose blockquote {
+    @apply my-2 pl-4 border-l-4 border-border italic text-muted-foreground;
+  }
+  .prose code {
+    @apply px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs font-mono;
+  }
+  .prose pre {
+    @apply my-2 p-3 bg-muted rounded-md overflow-x-auto;
+  }
+  .prose pre code {
+    @apply bg-transparent p-0 rounded-none text-xs;
+  }
+  .prose hr {
+    @apply my-4 border-border;
+  }
+  .prose img {
+    @apply my-3 rounded-md; /* Basic image styling */
+  }
+
+  /* Dark mode adjustments for prose, if using Tailwind Typography plugin, it handles this.
+     Since we are not, we can use .dark:prose-invert or specific dark styles if needed.
+     The .prose-invert class from Tailwind Typography is great for this.
+     For now, relying on inherited text colors from .dark:bg-slate-800 and .dark:text-slate-200 on NodeCard.
+  */
+   .dark .prose a {
+      @apply hover:text-primary/90;
+   }
+   /* Add more specific dark mode prose styles if default inheritance isn't enough */
+
 }
 
 /* Additional global styles specific to your application can go here */
@@ -158,3 +222,5 @@
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
+
+```
