@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -38,8 +39,21 @@ const summarizeNodeContentFlow = ai.defineFlow(
     inputSchema: SummarizeNodeContentInputSchema,
     outputSchema: SummarizeNodeContentOutputSchema,
   },
-  async input => {
-    const {output} = await summarizeNodeContentPrompt(input);
-    return output!;
+  async (input) => {
+    try {
+      const result = await summarizeNodeContentPrompt(input);
+      
+      if (!result || !result.output || typeof result.output.summary !== 'string') {
+        console.error('Summarization flow received no valid output from prompt. Result:', JSON.stringify(result, null, 2));
+        throw new Error('Failed to get a valid summary from the AI model.');
+      }
+      
+      return result.output;
+    } catch (error) {
+      console.error('Error in summarizeNodeContentFlow:', error);
+      // Propagate a clearer error message
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`AI summarization failed: ${errorMessage}`);
+    }
   }
 );
