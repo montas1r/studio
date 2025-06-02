@@ -43,7 +43,7 @@ export function useMindmaps() {
     if (!nodeContent) return MIN_NODE_HEIGHT;
     
     const nodeSize = nodeContent.size || 'standard';
-    const safeCurrentWidth = currentWidth > 0 ? currentWidth : getNodeDimensionsForSize(nodeSize).width; // Fallback to size default if currentWidth is bad
+    const safeCurrentWidth = currentWidth > 0 ? currentWidth : (getNodeDimensionsForSize(nodeSize).width || 1);
     const { defaultHeight: defaultHeightForSize } = getNodeDimensionsForSize(nodeSize);
 
     let height = 0;
@@ -57,10 +57,11 @@ export function useMindmaps() {
       }
     }
     
-    height += 24; 
+    height += 12; 
     if (nodeContent.description && nodeContent.description.trim() !== "") {
       const descCharsPerLine = Math.max(1, (safeCurrentWidth - (2 * 16)) / 8); 
-      const numDescLines = Math.ceil((nodeContent.description.length / descCharsPerLine)) + (nodeContent.description.split('\n').length -1);
+      const explicitNewlines = (nodeContent.description.match(/\n/g) || []).length;
+      const numDescLines = Math.ceil(nodeContent.description.length / descCharsPerLine) + explicitNewlines;
       height += Math.max(24, numDescLines * 20); 
     } else {
       height += 24; 
@@ -68,135 +69,146 @@ export function useMindmaps() {
     
     height += 4; 
     
-    // Clamp here before returning the approximation
     return Math.max(MIN_NODE_HEIGHT, Math.min(Math.max(defaultHeightForSize, Math.round(height)), MAX_NODE_HEIGHT));
-  }, [getNodeDimensionsForSize]);
+  }, [getNodeDimensionsForSize, MIN_NODE_HEIGHT, MAX_NODE_HEIGHT]);
 
 
   useEffect(() => {
     const loadedMindmaps = getMindmapsFromStorage();
     setMindmaps(loadedMindmaps.map(m => {
       const migratedNodes: NodesObject = {};
-      let nextRootX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (STANDARD_NODE_WIDTH / 2);
-      const rootsToProcess = Array.isArray(m.data.rootNodeIds) ? [...m.data.rootNodeIds] : [];
+      let nextRootX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (STANDARD_NODE_WIDTH / 2); // Initial estimate for first root
 
-      const assignPositionsAndSizes = (nodeId: string, parentNodeData?: NodeData, siblingIndex: number = 0, isFirstRootInMap: boolean = false) => {
+      // First pass: determine correct width and height for all nodes
+      const tempProcessedNodes: NodesObject = {};
+      for (const nodeId in m.data.nodes) {
         const node = m.data.nodes[nodeId];
-        if (!node) return;
+        if (!node) continue;
 
         const nodeSize = node.size || 'standard';
-        
-        let currentWidth: number;
-        if (typeof node.width === 'number' && node.width > 0) {
-            currentWidth = node.width;
-            // Ensure stored width matches the width for its 'size' property; if not, recalculate.
-            // This handles cases where 'size' might have changed but 'width' wasn't updated.
-            const expectedWidthForSize = getNodeDimensionsForSize(nodeSize).width;
-            if (currentWidth !== expectedWidthForSize) {
-                currentWidth = expectedWidthForSize;
-            }
-        } else {
-            currentWidth = getNodeDimensionsForSize(nodeSize).width;
-        }
+        const { width: expectedWidthForSize, defaultHeight: defaultHeightForSize } = getNodeDimensionsForSize(nodeSize);
 
-        let finalHeight: number;
-        if (typeof node.height === 'number' && node.height >= MIN_NODE_HEIGHT) {
+        let currentWidth = expectedWidthForSize;
+        // If node.width is stored and matches its size's expected width, use it. Otherwise, size dictates width.
+        if (typeof node.width === 'number' && node.width > 0 && node.width === expectedWidthForSize) {
+            currentWidth = node.width;
+        } // else currentWidth remains expectedWidthForSize
+
+        let finalHeight;
+        // Trust stored height IF: it's valid AND node.width (from storage) matches the currentWidth we've determined.
+        // This means the stored height was for the correct width.
+        if (
+            typeof node.height === 'number' && node.height >= MIN_NODE_HEIGHT && node.height <= MAX_NODE_HEIGHT &&
+            typeof node.width === 'number' && node.width === currentWidth
+        ) {
             finalHeight = node.height;
         } else {
-            const defaultHeightForSizeFallback = getNodeDimensionsForSize(nodeSize).defaultHeight;
-            const calculatedContentHeight = getApproxNodeHeight({title: node.title, description: node.description, emoji: node.emoji, size: nodeSize}, currentWidth);
-            finalHeight = Math.max(defaultHeightForSizeFallback, calculatedContentHeight);
+            // Stored height is missing, invalid, or its associated stored width differs from currentWidth. Recalculate.
+            const calculatedContentHeight = getApproxNodeHeight(
+                { title: node.title, description: node.description, emoji: node.emoji, size: nodeSize },
+                currentWidth
+            );
+            finalHeight = Math.max(defaultHeightForSize, calculatedContentHeight);
+            finalHeight = Math.max(MIN_NODE_HEIGHT, Math.min(finalHeight, MAX_NODE_HEIGHT)); // Clamp
         }
-        finalHeight = Math.max(MIN_NODE_HEIGHT, Math.min(finalHeight, MAX_NODE_HEIGHT));
+        
+        tempProcessedNodes[nodeId] = {
+            ...node,
+            width: currentWidth,
+            height: finalHeight,
+            size: nodeSize,
+            x: node.x, // Keep original x, y for now
+            y: node.y,
+        };
+      }
+
+      // Second pass: assign positions (x, y) using the processed nodes with correct dimensions
+      const rootsToProcess = Array.isArray(m.data.rootNodeIds) ? [...m.data.rootNodeIds] : [];
+      
+      // Calculate initial nextRootX based on actual root nodes that might have positions
+      let maxFoundRootX = -Infinity;
+      rootsToProcess.forEach(rootId => {
+          const rNode = tempProcessedNodes[rootId];
+          if (rNode && rNode.x !== undefined && rNode.width !== undefined) {
+              if ((rNode.x + rNode.width) > maxFoundRootX) {
+                  maxFoundRootX = rNode.x + rNode.width;
+              }
+          }
+      });
+      if (maxFoundRootX > -Infinity) {
+          nextRootX = maxFoundRootX + 50; // Start after the rightmost positioned root + spacing
+      }
 
 
-        let x, y;
-        if (node.x === undefined || node.y === undefined) {
+      const assignPositionsAndFinalize = (nodeId: string, parentNodeData?: NodeData, siblingIndex: number = 0, isFirstRootInCurrentMap: boolean = false) => {
+        const processedNode = tempProcessedNodes[nodeId];
+        if (!processedNode || migratedNodes[nodeId]) return; // Already finalized or not processed
+
+        let x = processedNode.x;
+        let y = processedNode.y;
+        const nodeWidth = processedNode.width!;
+        const nodeHeight = processedNode.height!;
+
+        if (x === undefined || y === undefined) { 
           const CHILD_X_OFFSET = 0;
           const CHILD_Y_OFFSET = 180;
-          const ROOT_X_SPACING = STANDARD_NODE_WIDTH + 50;
+          const ROOT_SPACING = 50; // Gap between root nodes
 
           if (parentNodeData) {
-            const parentX = parentNodeData.x ?? nextRootX;
-            const parentY = parentNodeData.y ?? Y_OFFSET_FOR_FIRST_ROOT;
-            const parentNodeHeightValue = parentNodeData.height ?? getApproxNodeHeight(parentNodeData, parentNodeData.width ?? STANDARD_NODE_WIDTH);
-            const parentNodeWidthValue = parentNodeData.width ?? STANDARD_NODE_WIDTH;
+            const parentX = parentNodeData.x!;
+            const parentY = parentNodeData.y!;
+            const parentNodeHeightValue = parentNodeData.height!;
+            const parentNodeWidthValue = parentNodeData.width!;
 
             y = parentY + parentNodeHeightValue + CHILD_Y_OFFSET;
 
             const childrenCount = parentNodeData.childIds?.length || 0;
-            if (childrenCount > 1) { // If current node is one of multiple children
-                const totalWidthOfChildren = childrenCount * currentWidth + (childrenCount -1) * 30;
+            if (childrenCount > 1) {
+                const totalWidthOfChildren = childrenCount * nodeWidth + (childrenCount -1) * 30; // 30px gap between siblings
                 const startX = parentX + (parentNodeWidthValue / 2) - (totalWidthOfChildren / 2);
-                x = startX + siblingIndex * (currentWidth + 30);
-            } else { // Single child or first child being laid out
-                x = parentX + (parentNodeWidthValue / 2) - (currentWidth / 2) + CHILD_X_OFFSET;
+                x = startX + siblingIndex * (nodeWidth + 30);
+            } else {
+                x = parentX + (parentNodeWidthValue / 2) - (nodeWidth / 2) + CHILD_X_OFFSET;
             }
-          } else { // Root node
-            if (isFirstRootInMap && rootsToProcess.length === 1 && node.x === undefined && node.y === undefined) {
-                x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (currentWidth / 2);
-                y = Y_OFFSET_FOR_FIRST_ROOT;
-            } else if (node.x !== undefined && node.y !== undefined) { // If it has position, use it
-                x = node.x;
-                y = node.y;
-            }
-            else {
+          } else { // Root node without position
+            if (isFirstRootInCurrentMap && rootsToProcess.filter(rid => tempProcessedNodes[rid]?.x === undefined).length === 1 && rootsToProcess.length === 1) {
+                // If it's the *only* root node AND it has no position, center it.
+                x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (nodeWidth / 2);
+            } else {
                 x = nextRootX;
-                y = Y_OFFSET_FOR_FIRST_ROOT;
-                nextRootX += currentWidth + (ROOT_X_SPACING - STANDARD_NODE_WIDTH) ;
             }
-          }
-           migratedNodes[nodeId] = { ...node, x, y, width: currentWidth, height: finalHeight, size: nodeSize };
-        } else { // Node already has x,y coordinates
-           migratedNodes[nodeId] = { ...node, x: node.x, y: node.y, width: currentWidth, height: finalHeight, size: nodeSize };
-          if (!parentNodeData && node.x !== undefined && (node.x + currentWidth + (STANDARD_NODE_WIDTH + 50 - STANDARD_NODE_WIDTH)) > nextRootX) {
-            nextRootX = node.x + currentWidth + (STANDARD_NODE_WIDTH + 50 - STANDARD_NODE_WIDTH);
+            y = Y_OFFSET_FOR_FIRST_ROOT;
+            if (x === nextRootX) { // Only advance nextRootX if we just used it
+                nextRootX += nodeWidth + ROOT_SPACING;
+            }
           }
         }
-
-        if (Array.isArray(node.childIds)) {
-          node.childIds.forEach((childId, index) => {
-            assignPositionsAndSizes(childId, migratedNodes[nodeId], index, false);
+        migratedNodes[nodeId] = { ...processedNode, x, y };
+        
+        if (Array.isArray(processedNode.childIds)) {
+          processedNode.childIds.forEach((childId, index) => {
+            assignPositionsAndFinalize(childId, migratedNodes[nodeId], index, false);
           });
         }
       };
-      rootsToProcess.forEach((rootId, index) => assignPositionsAndSizes(rootId, undefined, index, index === 0));
       
-      Object.keys(m.data.nodes).forEach(nodeId => {
-        if (!migratedNodes[nodeId]) { 
-          const node = m.data.nodes[nodeId];
-          const nodeSize = node.size || 'standard';
-          
-          let currentWidth: number;
-          if (typeof node.width === 'number' && node.width > 0) {
-              currentWidth = node.width;
-              const expectedWidthForSize = getNodeDimensionsForSize(nodeSize).width;
-              if (currentWidth !== expectedWidthForSize) {
-                  currentWidth = expectedWidthForSize;
-              }
-          } else {
-              currentWidth = getNodeDimensionsForSize(nodeSize).width;
-          }
-
-          let finalHeight: number;
-          if (typeof node.height === 'number' && node.height >= MIN_NODE_HEIGHT) {
-              finalHeight = node.height;
-          } else {
-              const defaultHeightForSizeFallback = getNodeDimensionsForSize(nodeSize).defaultHeight;
-              const calculatedHeight = getApproxNodeHeight({title: node.title, description: node.description, emoji: node.emoji, size: nodeSize}, currentWidth);
-              finalHeight = Math.max(defaultHeightForSizeFallback, calculatedHeight);
-          }
-          finalHeight = Math.max(MIN_NODE_HEIGHT, Math.min(finalHeight, MAX_NODE_HEIGHT));
-
-           migratedNodes[nodeId] = {
-            ...node,
-            x: node.x === undefined ? nextRootX : node.x,
-            y: node.y === undefined ? Y_OFFSET_FOR_FIRST_ROOT : node.y,
-            width: currentWidth,
-            height: finalHeight,
-            size: nodeSize,
-          };
-          if (node.x === undefined && !node.parentId) nextRootX += (currentWidth + (STANDARD_NODE_WIDTH + 50 - STANDARD_NODE_WIDTH));
+      let firstRootProcessed = false;
+      rootsToProcess.forEach(rootId => {
+          assignPositionsAndFinalize(rootId, undefined, 0, !firstRootProcessed);
+          if(tempProcessedNodes[rootId]?.x === undefined) firstRootProcessed = true; // Mark if we positioned a root node that needed it
+      });
+      
+      // Ensure all nodes (even orphans if any) are in migratedNodes with their (possibly original) positions
+      Object.keys(tempProcessedNodes).forEach(nodeId => {
+        if (!migratedNodes[nodeId]) {
+           const orphanNode = tempProcessedNodes[nodeId];
+           // If orphan still needs position, place it using nextRootX
+           const orphanX = orphanNode.x === undefined ? nextRootX : orphanNode.x;
+           const orphanY = orphanNode.y === undefined ? Y_OFFSET_FOR_FIRST_ROOT : orphanNode.y;
+           migratedNodes[nodeId] = { ...orphanNode, x: orphanX, y: orphanY };
+           if (orphanNode.x === undefined && !orphanNode.parentId) {
+             nextRootX += orphanNode.width! + 50; // 50 is ROOT_SPACING
+           }
         }
       });
 
@@ -212,7 +224,7 @@ export function useMindmaps() {
       };
     }));
     setIsLoading(false);
-  }, [getApproxNodeHeight, getNodeDimensionsForSize]); // Added relevant constants to dependency array
+  }, [getMindmapsFromStorage, getNodeDimensionsForSize, getApproxNodeHeight]); 
 
   useEffect(() => {
     if (!isLoading) {
@@ -289,42 +301,46 @@ export function useMindmaps() {
 
       const CHILD_X_OFFSET = 0;
       const CHILD_Y_OFFSET = 180;
-      const ROOT_X_SPACING = STANDARD_NODE_WIDTH + 50;
+      const ROOT_SPACING = 50;
 
     if (parentId) {
       const parentNode = currentNodes[parentId];
       if (parentNode) {
-        const parentNodeX = parentNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (STANDARD_NODE_WIDTH / 2);
+        const parentNodeX = parentNode.x ?? (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (parentNode.width ?? STANDARD_NODE_WIDTH / 2);
         const parentNodeY = parentNode.y ?? Y_OFFSET_FOR_FIRST_ROOT;
         const parentNodeWidthValue = parentNode.width ?? STANDARD_NODE_WIDTH;
-        const parentCalculatedHeight = getApproxNodeHeight(parentNode, parentNode.width ?? STANDARD_NODE_WIDTH);
-        const parentNodeHeightValue = parentNode.height ?? parentCalculatedHeight;
+        const parentNodeHeightValue = parentNode.height ?? getApproxNodeHeight(parentNode, parentNodeWidthValue);
+        
         const siblingCount = (parentNode.childIds || []).length;
         y = parentNodeY + parentNodeHeightValue + CHILD_Y_OFFSET;
+
         if (siblingCount > 0) {
-           const totalWidthOfChildren = (siblingCount + 1) * initialWidth + siblingCount * 30; 
-           const startX = parentNodeX + (parentNodeWidthValue / 2) - (totalWidthOfChildren / 2);
-           x = startX + siblingCount * (initialWidth + 30);
-        } else {
+           const totalWidthOfChildrenAndGaps = (siblingCount + 1) * initialWidth + siblingCount * 30; 
+           const startX = parentNodeX + (parentNodeWidthValue / 2) - (totalWidthOfChildrenAndGaps / 2);
+           x = startX + siblingCount * (initialWidth + 30); // New node is at the end
+        } else { // First child
            x = parentNodeX + (parentNodeWidthValue / 2) - (initialWidth / 2) + CHILD_X_OFFSET;
         }
-      } else {
+      } else { // ParentId provided but parent not found, treat as new root
         parentId = null; 
-        const lastRootNode = existingRootNodes.length > 0 ? existingRootNodes.sort((a,b) => (a.x ?? 0) - (b.x ?? 0))[existingRootNodes.length - 1] : null;
-        const lastRootWidth = lastRootNode?.width ?? STANDARD_NODE_WIDTH;
-        x = (lastRootNode?.x ?? ((LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (STANDARD_NODE_WIDTH / 2) - (lastRootWidth + (ROOT_X_SPACING - STANDARD_NODE_WIDTH))) ) + lastRootWidth + (ROOT_X_SPACING - STANDARD_NODE_WIDTH);
+        let lastRootNodeX = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (initialWidth / 2) - (initialWidth + ROOT_SPACING); // Default if no roots
+        let lastRootNodeWidth = 0;
+        if(existingRootNodes.length > 0) {
+            const lastRootNode = existingRootNodes.sort((a,b) => (a.x ?? 0) - (b.x ?? 0))[existingRootNodes.length - 1];
+            lastRootNodeX = lastRootNode.x ?? lastRootNodeX;
+            lastRootNodeWidth = lastRootNode.width ?? initialWidth;
+        }
+        x = lastRootNodeX + lastRootNodeWidth + ROOT_SPACING;
         y = Y_OFFSET_FOR_FIRST_ROOT;
       }
-    } else { 
+    } else { // New root node
       if (existingRootNodes.length === 0) {
         x = (LOGICAL_CANVAS_WIDTH_FOR_FIRST_ROOT / 2) - (initialWidth / 2);
-        y = Y_OFFSET_FOR_FIRST_ROOT;
       } else {
          const lastRootNode = existingRootNodes.sort((a,b) => (a.x ?? 0) - (b.x ?? 0))[existingRootNodes.length - 1];
-         const lastRootNodeWidthValue = lastRootNode.width ?? STANDARD_NODE_WIDTH;
-         x = (lastRootNode.x ?? 0) + lastRootNodeWidthValue + (ROOT_X_SPACING - STANDARD_NODE_WIDTH);
-         y = Y_OFFSET_FOR_FIRST_ROOT;
+         x = (lastRootNode.x ?? 0) + (lastRootNode.width ?? initialWidth) + ROOT_SPACING;
       }
+      y = Y_OFFSET_FOR_FIRST_ROOT;
     }
 
     const newNode: NodeData = {
@@ -366,34 +382,38 @@ export function useMindmaps() {
         if (m.data.nodes && m.data.nodes[nodeId]) {
           const existingNode = m.data.nodes[nodeId];
           
+          const intendedSize = updatedNodePartialData.size || existingNode.size || 'standard';
+          const { width: widthForIntendedSize, defaultHeight: defaultHeightForIntendedSize } = getNodeDimensionsForSize(intendedSize);
+
+          // Determine finalWidth: if width is in partial data use it, else use width derived from size.
+          const finalWidth = updatedNodePartialData.width !== undefined ? updatedNodePartialData.width : widthForIntendedSize;
+          
+          let finalHeight;
+
+          // If height is explicitly provided in updatedNodePartialData, use it (clamped).
+          if (updatedNodePartialData.height !== undefined) {
+            finalHeight = Math.max(MIN_NODE_HEIGHT, Math.min(updatedNodePartialData.height, MAX_NODE_HEIGHT));
+          } else {
+            // Height not explicitly provided. Calculate based on other potentially changed properties.
+            // Create a temporary merged state for accurate height calculation.
+            const tempNodeStateForHeightCalc = {
+                title: updatedNodePartialData.title !== undefined ? updatedNodePartialData.title : existingNode.title,
+                description: updatedNodePartialData.description !== undefined ? updatedNodePartialData.description : existingNode.description,
+                emoji: updatedNodePartialData.emoji !== undefined ? updatedNodePartialData.emoji : existingNode.emoji,
+                size: intendedSize, // Use the determined intendedSize
+            };
+            const calculatedHeight = getApproxNodeHeight(tempNodeStateForHeightCalc, finalWidth);
+            finalHeight = Math.max(defaultHeightForIntendedSize, calculatedHeight);
+            finalHeight = Math.max(MIN_NODE_HEIGHT, Math.min(finalHeight, MAX_NODE_HEIGHT)); 
+          }
+          
           const updatedNode: NodeData = {
             ...existingNode,
-            ...updatedNodePartialData,
+            ...updatedNodePartialData, // Apply all partial data
+            size: intendedSize,       // Ensure size is correctly set
+            width: finalWidth,        // Ensure width is correctly set
+            height: finalHeight,      // Ensure height is correctly set and clamped
           };
-  
-          if (
-            (updatedNodePartialData.size && updatedNodePartialData.size !== existingNode.size) ||
-            (updatedNodePartialData.width && updatedNodePartialData.width !== existingNode.width) ||
-            (updatedNodePartialData.title && updatedNodePartialData.title !== existingNode.title) ||
-            (updatedNodePartialData.description && updatedNodePartialData.description !== existingNode.description) ||
-            (updatedNodePartialData.emoji && updatedNodePartialData.emoji !== existingNode.emoji)
-          ) {
-            if(updatedNodePartialData.height === undefined) { 
-                 const newApproxHeight = getApproxNodeHeight(
-                    { title: updatedNode.title, description: updatedNode.description, emoji: updatedNode.emoji, size: updatedNode.size },
-                    updatedNode.width ?? getNodeDimensionsForSize(updatedNode.size).width
-                 );
-                 // Use the newApproxHeight which already considers default height and clamps
-                 updatedNode.height = newApproxHeight;
-            } else {
-                 // If height is explicitly provided, ensure it's clamped
-                 updatedNode.height = Math.max(MIN_NODE_HEIGHT, Math.min(updatedNodePartialData.height, MAX_NODE_HEIGHT));
-            }
-          } else if (updatedNodePartialData.height !== undefined) {
-             // If only height is provided, ensure it's clamped
-             updatedNode.height = Math.max(MIN_NODE_HEIGHT, Math.min(updatedNodePartialData.height, MAX_NODE_HEIGHT));
-          }
-
 
           const updatedNodes = {
             ...m.data.nodes,
@@ -430,7 +450,8 @@ export function useMindmaps() {
           
           let newHeight = Math.max(MIN_NODE_HEIGHT, Math.min(Math.round(measuredHeight), MAX_NODE_HEIGHT));
 
-          if (Math.abs((existingNode.height ?? 0) - newHeight) < 1) {
+          // Only update if the height has meaningfully changed (by at least 1px)
+          if (Math.abs((existingNode.height ?? MIN_NODE_HEIGHT) - newHeight) < 1) {
             return m; 
           }
 
@@ -441,7 +462,7 @@ export function useMindmaps() {
         return m;
       })
     );
-  }, []);
+  }, [MIN_NODE_HEIGHT, MAX_NODE_HEIGHT]);
 
 
   const deleteNodeRecursive = (nodes: NodesObject, nodeId: string): NodesObject => {
@@ -483,32 +504,12 @@ export function useMindmaps() {
   }, [getMindmapById, updateMindmap]);
 
   const updateNodeSize = useCallback((mindmapId: string, nodeId: string, newSize: NodeSize) => {
-      setMindmaps(prevMindmaps =>
-        prevMindmaps.map(m => {
-          if (m.id === mindmapId && m.data.nodes[nodeId]) {
-            const existingNode = m.data.nodes[nodeId];
-            const { width: newWidth, defaultHeight: newDefaultHeight } = getNodeDimensionsForSize(newSize);
-            
-            const newApproxHeight = getApproxNodeHeight(
-              { title: existingNode.title, description: existingNode.description, emoji: existingNode.emoji, size: newSize },
-              newWidth 
-            );
-            // newApproxHeight already considers defaultHeight and clamps
-            const finalNewHeight = newApproxHeight; 
-
-            const updatedNode = {
-              ...existingNode,
-              size: newSize,
-              width: newWidth,
-              height: finalNewHeight,
-            };
-            const updatedNodes = { ...m.data.nodes, [nodeId]: updatedNode };
-            return { ...m, data: { ...m.data, nodes: updatedNodes }, updatedAt: new Date().toISOString() };
-          }
-          return m;
-        })
-      );
-  }, [getNodeDimensionsForSize, getApproxNodeHeight]);
+      const mindmap = getMindmapById(mindmapId);
+      if (!mindmap || !mindmap.data.nodes[nodeId]) return;
+      const existingNode = mindmap.data.nodes[nodeId];
+      // Call updateNode, which now handles size changes and recalculates width/height appropriately
+      updateNode(nodeId, { ...existingNode, size: newSize, width: undefined, height: undefined });
+  }, [getMindmapById, updateNode]);
 
 
   return {
@@ -536,6 +537,5 @@ export function useMindmaps() {
     MAX_NODE_HEIGHT,
   };
 }
-
 
     
