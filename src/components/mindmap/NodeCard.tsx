@@ -16,6 +16,7 @@ interface NodeCardProps {
   onDelete: (nodeId: string) => void;
   onAddChild: (parentId: string) => void;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
+  onNodeTouchStart: (nodeId: string, event: React.TouchEvent<HTMLDivElement>) => void; // New prop for touch
   onNodeHeightChange?: (nodeId: string, measuredHeight: number) => void;
   isBeingManuallyResized?: boolean; // To pause observer during manual drag
   getApproxNodeHeightFromHook: (nodeContent: Partial<Pick<NodeData, 'title' | 'description' | 'emoji' | 'size'>>, currentWidth: number) => number;
@@ -28,6 +29,7 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
   onDelete,
   onAddChild,
   onDragStart,
+  onNodeTouchStart, // Destructure new prop
   onNodeHeightChange,
   isBeingManuallyResized,
   getApproxNodeHeightFromHook,
@@ -57,6 +59,10 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
 
   const handleDragStartInternal = (event: React.DragEvent<HTMLDivElement>) => {
     onDragStart(event, node.id);
+  };
+
+  const handleTouchStartInternal = (event: React.TouchEvent<HTMLDivElement>) => {
+    onNodeTouchStart(node.id, event);
   };
 
   useEffect(() => {
@@ -131,8 +137,9 @@ const NodeCardComponent = React.memo<NodeCardProps>(({
       ref={nodeRef}
       className={currentCardClasses}
       style={cardPositionStyle}
-      draggable
+      draggable // Keep for desktop drag
       onDragStart={handleDragStartInternal}
+      onTouchStart={handleTouchStartInternal} // Add touch start handler
       onClick={(e) => e.stopPropagation()} 
       onMouseDown={(e) => e.stopPropagation() }
     >

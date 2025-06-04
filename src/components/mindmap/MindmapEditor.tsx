@@ -55,18 +55,15 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const {
     getMindmapById,
     addNode,
-    updateNode, // Destructure the correct updateNode
+    updateNode, 
     deleteNode: deleteNodeFromHook,
     updateNodePosition,
     updateNodeHeightFromObserver, 
     updateMindmap,
     getApproxNodeHeight,
     getNodeDimensionsForSize, 
-    updateNodeSize, // Destructure new function
-    // Constants for node sizes
-    MINI_NODE_WIDTH, // Not directly used in editor, but good to have if needed
+    updateNodeSize, 
     STANDARD_NODE_WIDTH, 
-    MASSIVE_NODE_WIDTH, // Not directly used
     MIN_NODE_HEIGHT, 
     MAX_NODE_HEIGHT, 
   } = useMindmaps();
@@ -102,6 +99,12 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
   const canvasNumericWidth = useMemo(() => parseInt(LOGICAL_CANVAS_WIDTH_STR, 10), []);
   const canvasNumericHeight = useMemo(() => parseInt(LOGICAL_CANVAS_HEIGHT_STR, 10), []);
   
+  const [touchDraggingNodeInfo, setTouchDraggingNodeInfo] = useState<{
+    nodeId: string;
+    logicalOffsetX: number; // Offset from node's top-left to touch point, in logical units
+    logicalOffsetY: number;
+  } | null>(null);
+
   const handleNodeHeightChange = useCallback((nodeId: string, measuredHeight: number) => {
     if (mindmapId) { 
       updateNodeHeightFromObserver(mindmapId, nodeId, measuredHeight);
@@ -339,19 +342,54 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     return () => { if (vpCurrent) vpCurrent.removeEventListener('wheel', handleWheelZoom); };
   }, [handleWheelZoom]);
 
-  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (!viewportContainerRef.current) return;
-    const touches = event.touches;
-    const targetElement = touches[0]?.target as HTMLElement;
-    if (targetElement?.closest('.node-card-draggable') || targetElement?.closest('[data-tool-button]')) return;
 
+  const handleNodeTouchStartInteraction = useCallback((nodeId: string, event: React.TouchEvent<HTMLDivElement>) => {
+    if (activeTool === 'pan' || event.touches.length !== 1 || !mindmap || !viewportContainerRef.current) return;
+    
+    event.stopPropagation(); // Prevent canvas pan/zoom initiated by this touch on node.
+    
+    const node = mindmap.data.nodes[nodeId];
+    if (!node) return;
+
+    beforeMutation(); // Save state before drag starts
+
+    const touch = event.touches[0];
+    const viewportRect = viewportContainerRef.current.getBoundingClientRect();
+
+    // Touch position relative to viewport origin
+    const touchX_viewport = touch.clientX - viewportRect.left;
+    const touchY_viewport = touch.clientY - viewportRect.top;
+
+    // Convert touch position to logical canvas coordinates
+    const touchX_logical = (touchX_viewport - pan.x) / scale;
+    const touchY_logical = (touchY_viewport - pan.y) / scale;
+    
+    setTouchDraggingNodeInfo({
+      nodeId,
+      logicalOffsetX: touchX_logical - node.x,
+      logicalOffsetY: touchY_logical - node.y,
+    });
+  }, [activeTool, mindmap, pan, scale, beforeMutation]);
+
+
+  const handleViewportTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    // This handler is for the viewport itself. If a node touch drag is active,
+    // or if the touch did not originate directly on the viewport background,
+    // it might have been handled by handleNodeTouchStartInteraction (due to stopPropagation).
+    if (!viewportContainerRef.current || touchDraggingNodeInfo) return;
+
+    const touches = event.touches;
+    // Pan logic for one-finger touch on canvas background
     if (touches.length === 1 && activeTool === 'pan') {
-      event.preventDefault();
+      // No event.preventDefault() here to allow default scroll on other elements if needed,
+      // but pan tool should ideally prevent scroll on canvas.
       setIsPanning(true);
       panStartRef.current = { mouseX: touches[0].clientX, mouseY: touches[0].clientY, panX: pan.x, panY: pan.y };
-    } else if (touches.length === 2) {
-      event.preventDefault();
-      setIsPanning(false);
+    } 
+    // Pinch-zoom logic for two-finger touch
+    else if (touches.length === 2) {
+      event.preventDefault(); // Prevent default pinch zoom/scroll
+      setIsPanning(false); // Ensure panning is off during pinch
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
       pinchStartDistRef.current = Math.sqrt(dx * dx + dy * dy);
@@ -362,22 +400,45 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         y: ((touches[0].clientY + touches[1].clientY) / 2) - viewportRect.top,
       };
     }
-  }, [activeTool, pan.x, pan.y, scale]);
+  }, [activeTool, pan.x, pan.y, scale, touchDraggingNodeInfo]);
 
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (!viewportContainerRef.current) return;
+
+  const handleViewportTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!viewportContainerRef.current || !mindmap) return;
     const touches = event.touches;
-    const targetElement = touches[0]?.target as HTMLElement;
-    if (targetElement?.closest('.node-card-draggable') || targetElement?.closest('[data-tool-button]')) {
-      if (!isPanning && pinchStartDistRef.current === null) return;
-    }
-    event.preventDefault();
 
-    if (touches.length === 1 && isPanning && panStartRef.current && activeTool === 'pan') {
+    if (touchDraggingNodeInfo && touches.length === 1) {
+      event.preventDefault(); // Prevent page scroll while dragging node
+      const touch = touches[0];
+      const viewportRect = viewportContainerRef.current.getBoundingClientRect();
+      
+      const touchX_viewport = touch.clientX - viewportRect.left;
+      const touchY_viewport = touch.clientY - viewportRect.top;
+
+      let newX_logical = (touchX_viewport - pan.x) / scale - touchDraggingNodeInfo.logicalOffsetX;
+      let newY_logical = (touchY_viewport - pan.y) / scale - touchDraggingNodeInfo.logicalOffsetY;
+      
+      const nodeToDrag = mindmap.data.nodes[touchDraggingNodeInfo.nodeId];
+      if (!nodeToDrag) return; // Should not happen if touchDraggingNodeInfo is set
+      
+      const nodeWidth = nodeToDrag.width ?? STANDARD_NODE_WIDTH;
+      const nodeHeight = nodeToDrag.height ?? getApproxNodeHeight(nodeToDrag, nodeWidth);
+
+      newX_logical = Math.max(0, Math.min(newX_logical, canvasNumericWidth - nodeWidth));
+      newY_logical = Math.max(0, Math.min(newY_logical, canvasNumericHeight - nodeHeight));
+
+      updateNodePosition(mindmap.id, touchDraggingNodeInfo.nodeId, newX_logical, newY_logical);
+    } 
+    // Panning
+    else if (touches.length === 1 && isPanning && panStartRef.current && activeTool === 'pan') {
+      event.preventDefault();
       const dx = touches[0].clientX - panStartRef.current.mouseX;
       const dy = touches[0].clientY - panStartRef.current.mouseY;
       setPan(clampPan(panStartRef.current.panX + dx, panStartRef.current.panY + dy, scale));
-    } else if (touches.length === 2 && pinchStartDistRef.current !== null && pinchCenterRef.current) {
+    } 
+    // Pinch Zoom
+    else if (touches.length === 2 && pinchStartDistRef.current !== null && pinchCenterRef.current) {
+      event.preventDefault();
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
       const newDist = Math.sqrt(dx * dx + dy * dy);
@@ -385,13 +446,24 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
       const newScaleAttempt = pinchStartScaleRef.current * scaleChange;
       adjustZoom(newScaleAttempt, pinchCenterRef.current.x, pinchCenterRef.current.y);
     }
-  }, [isPanning, activeTool, scale, clampPan, adjustZoom]);
+  }, [
+    touchDraggingNodeInfo, mindmap, pan, scale, updateNodePosition, STANDARD_NODE_WIDTH, getApproxNodeHeight,
+    canvasNumericWidth, canvasNumericHeight, isPanning, activeTool, clampPan, adjustZoom
+  ]);
 
-  const handleTouchEnd = useCallback(() => {
-    if (isPanning) setIsPanning(false);
+  const handleViewportTouchEnd = useCallback(() => {
+    if (touchDraggingNodeInfo) {
+      setTouchDraggingNodeInfo(null); // End node drag
+    }
+    if (isPanning) {
+      setIsPanning(false); // End pan
+    }
+    // Reset pinch zoom refs
     pinchStartDistRef.current = null;
+    pinchStartScaleRef.current = 1; 
     pinchCenterRef.current = null;
-  }, [isPanning]);
+  }, [touchDraggingNodeInfo, isPanning]);
+
 
   const handleAddRootNode = useCallback(async () => {
     if (newRootNodeTitle.trim() === '') {
@@ -423,7 +495,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const parentNode = mindmap.data.nodes[parentId];
     if (!parentNode) return;
     
-    const { width: defaultWidth, defaultHeight } = getNodeDimensionsForSize('standard');
+    const { width: defaultWidth } = getNodeDimensionsForSize('standard'); // Removed defaultHeight from here
     const tempNewNode: NodeData = {
       id: `temp-${Date.now()}`,
       title: '', description: "", emoji: "➕", parentId: parentId, childIds: [],
@@ -453,24 +525,28 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
         { title: data.title, description: data.description, emoji: data.emoji, size: finalSize }, 
         baseWidthForSize
     );
-    const finalHeight = Math.max(defaultHeightForSize, actualHeight);
+    const finalHeight = Math.max(MIN_NODE_HEIGHT, Math.min(Math.max(defaultHeightForSize, actualHeight), MAX_NODE_HEIGHT));
+
 
     if (editingNode.id.startsWith('temp-')) { 
       const savedNode = addNode(mindmap.id, editingNode.parentId, data); 
-      if (savedNode) toast({ title: "Node Created", description: `Node "${savedNode.title}" added.` });
+      if (savedNode) {
+        // After adding, if a specific size was chosen, ensure it's applied correctly
+        if (newSize && savedNode.size !== newSize) {
+            updateNodeSize(mindmap.id, savedNode.id, newSize);
+        }
+        toast({ title: "Node Created", description: `Node "${savedNode.title}" added.` });
+      }
     } else { 
-      // Ensure updateNode is called correctly
       updateNode(editingNode.id, { 
         ...data, 
-        size: finalSize,
-        width: baseWidthForSize, 
-        height: finalHeight,     
+        size: finalSize, // This triggers width/height recalc in updateNode
       });
       toast({ title: "Node Updated", description: `Node "${data.title}" saved.` });
     }
     setEditingNode(null);
     setIsEditDialogOpen(false);
-  }, [mindmap, editingNode, addNode, updateNode, toast, beforeMutation, getNodeDimensionsForSize, getApproxNodeHeight]);
+  }, [mindmap, editingNode, addNode, updateNode, updateNodeSize, toast, beforeMutation, getNodeDimensionsForSize, getApproxNodeHeight, MIN_NODE_HEIGHT, MAX_NODE_HEIGHT]);
 
 
   const requestDeleteNode = useCallback((nodeId: string) => {
@@ -502,6 +578,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     const payload = { nodeId, logicalDragOffsetX, logicalDragOffsetY };
     event.dataTransfer.setData('application/json', JSON.stringify(payload));
     event.dataTransfer.effectAllowed = "move";
+    // No beforeMutation here for mouse drag, it's handled in handleDropOnCanvas
   }, [activeTool, scale]);
 
   const handleDragOverCanvas = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -539,7 +616,7 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
     newX_logical = Math.max(0, Math.min(newX_logical, canvasNumericWidth - nodeWidth));
     newY_logical = Math.max(0, Math.min(newY_logical, canvasNumericHeight - nodeHeight));
 
-    beforeMutation();
+    beforeMutation(); // Call beforeMutation for mouse drag end
     updateNodePosition(mindmap.id, nodeId, newX_logical, newY_logical);
   }, [mindmap, pan, scale, activeTool, beforeMutation, canvasNumericWidth, canvasNumericHeight, getApproxNodeHeight, updateNodePosition, STANDARD_NODE_WIDTH]);
 
@@ -599,13 +676,13 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
           <div
             ref={viewportContainerRef}
             style={{ width: `${FIXED_VIEWPORT_WIDTH}px`, height: `${FIXED_VIEWPORT_HEIGHT}px`, overflow: 'hidden', userSelect: 'auto', backgroundColor: 'hsl(var(--background))', position: 'relative' }}
-            onMouseDown={handlePanMouseDown}
-            onDragOver={handleDragOverCanvas}
-            onDrop={handleDropOnCanvas}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
+            onMouseDown={handlePanMouseDown} // For desktop pan
+            onDragOver={handleDragOverCanvas} // For desktop node drag
+            onDrop={handleDropOnCanvas} // For desktop node drag
+            onTouchStart={handleViewportTouchStart} // For canvas pan/zoom and to capture node drag start indirectly
+            onTouchMove={handleViewportTouchMove}
+            onTouchEnd={handleViewportTouchEnd}
+            onTouchCancel={handleViewportTouchEnd} // Important for unexpected touch interruptions
           >
             <div
               ref={canvasContentRef}
@@ -648,10 +725,11 @@ export function MindmapEditor({ mindmapId }: MindmapEditorProps) {
                   onEdit={handleEditNode}
                   onDelete={requestDeleteNode}
                   onAddChild={handleAddChildNode}
-                  onDragStart={(e) => handleNodeDragStart(e, nodeData.id)}
+                  onDragStart={(e) => handleNodeDragStart(e, nodeData.id)} // For desktop mouse drag
+                  onNodeTouchStart={handleNodeTouchStartInteraction} // For mobile touch drag
                   onNodeHeightChange={handleNodeHeightChange} 
                   getApproxNodeHeightFromHook={getApproxNodeHeight} 
-                  STANDARD_NODE_WIDTH_FROM_HOOK={STANDARD_NODE_WIDTH}
+                  STANDARD_NODE_WIDTH_FROM_HOOK={STANDARD_NODE_WIDTH} // Corrected prop name
                   className="node-card-draggable"
                 />
               ))}
